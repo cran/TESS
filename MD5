@@ -1,0 +1,14 @@
+a3bc38c7f078c971759e73c5cf95c6d0 *DESCRIPTION
+1f780e0131679de1a3620294054da696 *NAMESPACE
+fe01878aa53f2c4bc5730cbc6ae0ffba *R/globalBiDe.equations.R
+26c4e492dc91b718cac9d94a199937b8 *R/globalBiDe.likelihood.R
+0784e9a816da69552b1b1871e925b312 *R/sim.globalBiDe.age.R
+6773e15f0c272a76332889f26c566cc9 *R/sim.globalBiDe.taxa.R
+82c68a76c49212eb38bf1beb8857150f *R/sim.globalBiDe.taxa.age.R
+55f6505a1ae45e47691117ae294aaf63 *R/tess.integrate.R
+908a19030e2438b8fabf12f8f2b941b5 *R/tess.utilities.R
+7609b2a2775d1df11adbc8afb2f80c64 *man/TESS-package.Rd
+c7a77586f1b8c37a2e485835b2238b2c *man/globalBiDe.likelihood.Rd
+634a4dfd5f49bc99769c47f2ba8d5d22 *man/sim.globalBiDe.age.Rd
+883fce429db0db73cffb2f93c37cff3c *man/sim.globalBiDe.taxa.Rd
+4c129170f9bea2512e35f8fc63338f70 *man/sim.globalBiDe.taxa.age.Rd

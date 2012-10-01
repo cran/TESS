@@ -1,0 +1,6 @@
+
+export(globalBiDe.likelihood,sim.globalBiDe.age, sim.globalBiDe.taxa.age, sim.globalBiDe.taxa)
+
+import(ape)
+
+
