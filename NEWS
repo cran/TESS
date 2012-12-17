@@ -1,0 +1,61 @@
+		CHANGES IN TESS VERSION 1.1.0
+
+
+NEW FEATURES
+
+    o MCMC algorithm is available for any model.
+
+    o Posterior prediction is available for any model.
+
+    o A posterior predictive simulation function.
+
+
+BUG FIXES
+
+    o ...
+
+
+OTHER CHANGES
+
+    o ...
+
+
+
+		CHANGES IN TESS VERSION 1.0.3
+
+
+BUG FIXES
+
+    o globalBiDe.equations.pN had a missing constant factor.
+
+    o sim.globalBiDe.taxa.age.constant includes the sampling probability correctly.
+
+
+OTHER CHANGES
+
+    o globalBiDe.likelihood uses now fast approximations too.
+
+    o sim.globalBiDe.taxa searches now for a reasonable range of the tmrca.
+
+
+
+		CHANGES IN TESS VERSION 1.0.2
+
+
+BUG FIXES
+
+    o likelihood for constant rates had a bug for incomplete taxon sampling.
+
+
+
+		CHANGES IN TESS VERSION 1.0.1
+
+
+BUG FIXES
+
+    o sim.globalBiDe.* had wrong ordering of speciation times.
+
+
+
+
+

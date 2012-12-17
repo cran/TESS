@@ -29,16 +29,17 @@
 ################################################################################
 # 
 # @brief Simulate a tree for a given age (either using numerical integration
-#        or linear function approximation).
+#        or the analytical solution for constant rates).
 #
-# @date Last modified: 2012-09-23
+# @date Last modified: 2013-01-30
 # @author Sebastian Hoehna
-# @version 1.0
+# @version 1.1
 # @since 2012-09-23, version 1.0
 #
+# @param    n                                             scalar        number of simulations
+# @param    age                                           scalar        time of the process
 # @param    lambda                                        function      speciation rate function
 # @param    mu                                            function      extinction rate function
-# @param    age                                           scalar        time of the process
 # @param    massExtinctionTimes                           vector        timse at which mass-extinctions happen
 # @param    massExtinctionSurvivalProbabilities           vector        survival probability of a mass extinction event
 # @param    samplingProbability                           scalar        probability of random sampling at present
@@ -46,43 +47,28 @@
 # @return                                                 phylo         a random tree
 #
 ################################################################################
-sim.globalBiDe.age <- function(lambda,mu,massExtinctionTimes=c(),massExtinctionSurvivalProbabilities=c(),samplingProbability=1.0,age,MRCA=TRUE,approx=TRUE) {
+sim.globalBiDe.age <- function(n,age,lambda,mu,massExtinctionTimes=c(),massExtinctionSurvivalProbabilities=c(),samplingProbability=1.0,MRCA=TRUE) {
+
+  if ( length(massExtinctionTimes) != length(massExtinctionSurvivalProbabilities) ) {
+    stop("Number of mass-extinction times needs to equals the number of mass-extinction survival probabilities!")
+  }
+  
   # test if we got constant values for the speciation and extinction rates
-  if ( class(lambda) == "numeric" && class(mu) == "numeric" ) {
+  if ( inherits(lambda, "numeric") && inherits(mu, "numeric") ) {
     # call simulation for constant rates (much faster)
-    tree <- sim.globalBiDe.age.constant(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,age,MRCA)
-    return (tree)
-  } else if ( class(lambda) == "function" && class(mu) == "numeric" ) {
-    # should we use linear function approximation?
-    if ( approx == TRUE ) {
-      extinction <- function (x) mu
-      tree <- sim.globalBiDe.age.function.fastApprox(lambda,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,age,MRCA,1000,1000)
-      return (tree)
-    } else {
-      extinction <- function (x) mu
-      tree <- sim.globalBiDe.age.function(lambda,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,age,MRCA,1000,1000)
-      return (tree)
-    }
-  } else if ( class(lambda) == "numeric" && class(mu) == "function" ) {
-    # should we use linear function approximation?
-    if ( approx == TRUE ) {
-      speciation <- function (x) lambda
-      tree <- sim.globalBiDe.age.function.fastApprox(speciation,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,age,MRCA,1000,1000)
-      return (tree)
-    } else {
-      speciation <- function (x) lambda
-      tree <- sim.globalBiDe.age.function(speciation,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,age,MRCA,1000,1000)
-      return (tree)
-    }
-  } else if ( class(lambda) == "function" && class(mu) == "function" ) {
-    # should we use linear function approximation?
-    if ( approx == TRUE ) {
-      tree <- sim.globalBiDe.age.function.fastApprox(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,age,MRCA,1000,1000)
-      return (tree)
-    } else {
-      tree <- sim.globalBiDe.age.function(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,age,MRCA,1000,1000)
-      return (tree)
-    }
+    trees <- sim.globalBiDe.age.constant(n,age,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA)
+    return (trees)
+  } else if ( inherits(lambda, "function") && inherits(mu, "numeric") ) {
+    extinction <- function (x) mu
+    trees <- sim.globalBiDe.age.function(n,age,lambda,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA,1000,1000)
+    return (trees)
+  } else if ( inherits(lambda, "numeric") && inherits(mu, "function") ) {
+    speciation <- function (x) lambda
+    trees <- sim.globalBiDe.age.function(n,age,speciation,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA,1000,1000)
+    return (trees)
+  } else if ( inherits(lambda, "function") && inherits(mu, "function") ) {
+      trees <- sim.globalBiDe.age.function(n,age,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA,1000,1000)
+      return (trees)
   } else {
     stop("Unexpected parameter types for lambda and mu!")
   }
@@ -95,106 +81,67 @@ sim.globalBiDe.age <- function(lambda,mu,massExtinctionTimes=c(),massExtinctionS
 # 
 # @brief Simulate a tree for a given age.
 #
-# @date Last modified: 2012-09-11
+# 1) Draw n times the number of taxa at the present time (Equation (10)).
+# 2) For each nTaxa, draw simulate a tree using the function sim.globalBiDe.taxa.age.constant
+#
+# @date Last modified: 2013-01-14
 # @author Sebastian Hoehna
-# @version 1.0
+# @version 1.1
 # @since 2012-09-11, version 1.0
 #
-# @param    lambda        scalar        speciation rate function
-# @param    mu            scalar        extinction rate function
-# @param    age           scalar        time of the process
-# @return                 phylo         a random tree
+# @param    n                                             scalar        number of simulations
+# @param    age                                           scalar        time of the process
+# @param    lambda                                        scalar        speciation rate function
+# @param    mu                                            scalar        extinction rate function
+# @param    massExtinctionTimes                           vector        timse at which mass-extinctions happen
+# @param    massExtinctionSurvivalProbabilities           vector        survival probability of a mass extinction event
+# @param    samplingProbability                           scalar        probability of random sampling at present
+# @return                                                 phylo         a random tree
 #
 ################################################################################
-sim.globalBiDe.age.constant <- function(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,age,MRCA) {
-  # randomly draw a number of taxa
-  u <- runif(1,0,1)
+sim.globalBiDe.age.constant <- function(n,age,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA) {
 
-  nTaxa <- 0
-
+  
   # precompute the probabilities
   p_s <- globalBiDe.equations.pSurvival.constant(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,0,age,age,log=FALSE)
-  r   <- (mu-lambda)*age
+  r   <- (mu-lambda)*age - log(samplingProbability)
+    
+  trees <- list()
+  # for each simulation
+  for ( i in 1:n ) {
+    # randomly draw a number of taxa
+    u <- runif(1,0,1)
+
+    nTaxa <- 0
   
-  if (MRCA == TRUE) {
-    nTaxa <- 1
-    while (u > 0) {
-      nTaxa <- nTaxa + 1
-      p <- (nTaxa-1) * (p_s * exp(r))^2 * ( 1 - p_s * exp(r))^(nTaxa-2)
-      u <- u - p
+    if (MRCA == TRUE) {
+      nTaxa <- 1
+      while (u > 0) {
+        nTaxa <- nTaxa + 1
+        p <- (nTaxa-1) * (p_s * exp(r))^2 * ( 1 - p_s * exp(r))^(nTaxa-2)
+        u <- u - p
+      }
+    } else { 
+      while (u > 0) {
+        nTaxa <- nTaxa + 1
+        p <- p_s * exp(r) * ( 1 - p_s * exp(r))^(nTaxa-1)
+        u <- u - p
+      }
     }
-  } else { 
-    while (u > 0) {
-      nTaxa <- nTaxa + 1
-      p <- p_s * exp(r) * ( 1 - p_s * exp(r))^(nTaxa-1)
-      u <- u - p
+
+    # check if we actually have a tree
+    if ( nTaxa < 2 ) {
+      tree <- 1
+    } else {
+
+      # delegate the call to the simulation condition on both, age and nTaxa
+      tree <- sim.globalBiDe.taxa.age.constant(1,nTaxa,age,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA)[[1]]
     }
-  }
 
-  # check if we actually have a tree
-  if ( nTaxa < 2 ) {
-    return (1)
-  } else {
+    trees[[i]] <- tree
+  } # end for each simulation
 
-    # delegate the call to the simulation condition on both, age and nTaxa
-    tree <- sim.globalBiDe.taxa.age.constant(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,nTaxa,age,MRCA)
-
-    return (tree)
-  }
-}
-
-
-      
-################################################################################
-# 
-# @brief Simulate a tree for a given age.
-#
-# @date Last modified: 2012-09-11
-# @author Sebastian Hoehna
-# @version 1.0
-# @since 2012-09-11, version 1.0
-#
-# @param    lambda        function      speciation rate function
-# @param    mu            function      extinction rate function
-# @param    age           scalar        time of the process
-# @return                 phylo         a random tree
-#
-################################################################################
-sim.globalBiDe.age.function <- function(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,age,MRCA,nTimeSteps,nBlocks) {
-  # randomly draw a number of taxa
-  u <- runif(1,0,1)
-
-  nTaxa <- 0
-
-  # precompute the probabilities
-  p_s <- globalBiDe.equations.pSurvival(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,0,age,age,log=FALSE)
-  r   <- globalBiDe.equations.rate(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,0,age,age)
-
-  if (MRCA == TRUE) {
-    nTaxa <- 1
-    while (u > 0) {
-      nTaxa <- nTaxa + 1
-      p <- (nTaxa-1) * (p_s * exp(r))^2 * ( 1 - p_s * exp(r))^(nTaxa-2)
-      u <- u - p
-    }
-  } else { 
-    while (u > 0) {
-      nTaxa <- nTaxa + 1
-      p <- p_s * exp(r) * ( 1 - p_s * exp(r))^(nTaxa-1)
-      u <- u - p
-    }
-  }
-
-  # check if we actually have a tree
-  if ( nTaxa < 2 ) {
-    return (1)
-  } else {
-
-    # delegate the call to the simulation condition on both, age and nTaxa
-    tree <- sim.globalBiDe.taxa.age.function(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,nTaxa,age,MRCA,nTimeSteps,nBlocks)
-  
-    return (tree)
-  }
+  return (trees)
 }
 
 
@@ -204,92 +151,67 @@ sim.globalBiDe.age.function <- function(lambda,mu,massExtinctionTimes,massExtinc
 # @brief Simulate a tree for a given age. This is the fast approximation
 #        procedure using precomputed integral functions.
 #
-# @date Last modified: 2012-09-18
+# 1) Draw n times the number of taxa at the present time (Equation (10)).
+# 2) For each nTaxa, draw simulate a tree using the function sim.globalBiDe.taxa.age.function
+#
+# @date Last modified: 2013-01-14
 # @author Sebastian Hoehna
-# @version 1.0
+# @version 1.1
 # @since 2012-09-18, version 1.0
 #
-# @param    lambda        function      speciation rate function
-# @param    mu            function      extinction rate function
-# @param    age           scalar        time of the process
-# @return                 phylo         a random tree
+# @param    n                                             scalar        number of simulations
+# @param    age                                           scalar        time of the process
+# @param    lambda                                        scalar        speciation rate function
+# @param    mu                                            scalar        extinction rate function
+# @param    massExtinctionTimes                           vector        timse at which mass-extinctions happen
+# @param    massExtinctionSurvivalProbabilities           vector        survival probability of a mass extinction event
+# @param    samplingProbability                           scalar        probability of random sampling at present
+# @return                                                 phylo         a random tree
 #
 ################################################################################
-sim.globalBiDe.age.function.fastApprox <- function(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,age,MRCA,nTimeSteps,nBlocks) {
+sim.globalBiDe.age.function <- function(n,age,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA,nTimeSteps,nBlocks) {
 
-  #env <- parent.env(environment(NULL))
-  assign("maxTime", age, envir = .TessEnv) 
-
-  N <- get("N_DISCRETIZATION_NBLOCKS",envir=.TessEnv)
-
-  # adjust mass-extinction times
-  if (length(massExtinctionTimes) > 0) {
-    for (i in 1:length(massExtinctionTimes)) {
-      tmp <- N * massExtinctionTimes[i] / age
-      massExtinctionTimes[i] <- (round(tmp) / N) * age
-    }
-  }
-
-  # precompute the rate integral
-  riv <- c()
-  riv[1] <- 0
-  for (i in 2:(N+1)) {
-    riv[i] <- riv[i-1] + globalBiDe.equations.rate(lambda, mu, massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability, (i-2)*age/N, (i-1)*age/N, age)
-  }
-  assign("rateIntegralValues", riv, envir = .TessEnv)
-  
-  # precompute the survival integral
-  siv <- c()
-  siv[1] <- 0
-  survival <- function(t) {
-    s <- mu(t) * exp(rateIntegral(t))
-    return (s)
-  }
-  for (i in 2:(N+1)) {
-    lower <- (i-2)*age/N
-    upper <- (i-1)*age/N
-    siv[i] <- siv[i-1] + tess.integrate(survival,lower, upper)
-    if ( length(massExtinctionTimes) > 0 ) {
-      for (j in 1:length(massExtinctionTimes) ) {
-        if ( lower < massExtinctionTimes[j] && upper >= massExtinctionTimes[j] ) {
-          siv[i] <- siv[i] - (massExtinctionSurvivalProbabilities[j]-1)*rateIntegral(massExtinctionTimes[j])
-        }
-      }
-    }
-  }
-  assign("survivalIntegralValues", siv, envir = .TessEnv)
-  
-  # randomly draw a number of taxa
-  u <- runif(1,0,1)
-
-  nTaxa <- 0
+  # approximate the rate integral and the survival probability integral for fas computations
+  approxFuncs <- tess.prepare.pdf(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,age,c())
 
   # precompute the probabilities
-  p_s <- globalBiDe.equations.pSurvival.fastApprox(0,age,log=FALSE)
-  r   <- rateIntegral(age)
-
-  if (MRCA == TRUE) {
-    nTaxa <- 1
-    while (u > 0) {
-      nTaxa <- nTaxa + 1
-      p <- (nTaxa-1) * (p_s * exp(r))^2 * ( 1 - p_s * exp(r))^(nTaxa-2)
-      u <- u - p
-    }
-  } else { 
-    while (u > 0) {
-      nTaxa <- nTaxa + 1
-      p <- p_s * exp(r) * ( 1 - p_s * exp(r))^(nTaxa-1)
-      u <- u - p
-    }
-  }
-
-  # check if we actually have a tree
-  if ( nTaxa < 2 ) {
-    return (1)
-  } else {
-    # delegate the call to the simulation condition on both, age and nTaxa
-    tree <- sim.globalBiDe.taxa.age.function.fastApprox(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,nTaxa,age,MRCA=MRCA,nTimeSteps=nTimeSteps,nBlocks=nBlocks,precomputed=TRUE)
+  p_s <- globalBiDe.equations.pSurvival.fastApprox(approxFuncs$r,approxFuncs$s,samplingProbability,0,age,age,log=FALSE)
+  r   <- approxFuncs$r(age) - log(samplingProbability)
   
-    return (tree)
-  }
+  trees <- list()
+  # for each simulation
+  for ( i in 1:n ) {
+  
+    # randomly draw a number of taxa
+    u <- runif(1,0,1)
+
+    nTaxa <- 0
+
+    if (MRCA == TRUE) {
+      nTaxa <- 1
+      while (u > 0) {
+        nTaxa <- nTaxa + 1
+        p <- (nTaxa-1) * (p_s * exp(r))^2 * ( 1 - p_s * exp(r))^(nTaxa-2)
+        u <- u - p
+      }
+    } else { 
+      while (u > 0) {
+        nTaxa <- nTaxa + 1
+        p <- p_s * exp(r) * ( 1 - p_s * exp(r))^(nTaxa-1)
+        u <- u - p
+      }
+    }
+
+    # check if we actually have a tree
+    if ( nTaxa < 2 ) {
+      tree <- 1
+    } else {
+      # delegate the call to the simulation condition on both, age and nTaxa
+      tree <- sim.globalBiDe.taxa.age.function(1,nTaxa,age,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA=MRCA,approxFuncs$r,approxFuncs$s)[[1]]
+  
+    }
+    trees[[i]] <- tree
+  } #end for each simulation
+  return (trees)
+    
 }

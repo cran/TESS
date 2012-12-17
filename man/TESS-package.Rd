@@ -8,8 +8,8 @@
 \tabular{ll}{
 Package: \tab TESS\cr
 Type: \tab Package\cr
-Version: \tab 1.0.0\cr
-Date: \tab 2012-10-10\cr
+Version: \tab 1.1.0\cr
+Date: \tab 2012-11-05\cr
 License: \tab GPL-3\cr
 LazyLoad: \tab yes\cr
 }

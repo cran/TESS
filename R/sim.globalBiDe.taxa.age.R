@@ -30,11 +30,12 @@
 # 
 # @brief Simulate a tree for a given number of taxa.
 #
-# @date Last modified: 2012-09-11
+# @date Last modified: 2012-11-05
 # @author Sebastian Hoehna
 # @version 1.0
 # @since 2012-09-11, version 1.0
 #
+# @param    n                                             scalar        number of simulations
 # @param    lambda                                        function      speciation rate function
 # @param    mu                                            function      extinction rate function
 # @param    nTaxa                                         scalar        number of taxa at present
@@ -46,46 +47,41 @@
 # @return                                                 phylo         a random tree
 #
 ################################################################################
-sim.globalBiDe.taxa.age <- function(lambda,mu,massExtinctionTimes=c(),massExtinctionSurvivalProbabilities=c(),samplingProbability=1.0,nTaxa,age,MRCA=TRUE,approx=TRUE) {
-  # test if we got constant values for the speciation and extinction rates
-  if ( class(lambda) == "numeric" && class(mu) == "numeric" ) {
-    # call simulation for constant rates (much faster)
-    tree <- sim.globalBiDe.taxa.age.constant(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,nTaxa,age,MRCA)
-    return (tree)
-  } else if ( class(lambda) == "function" && class(mu) == "numeric" ) {
-    # should we use linear function approximation?
-    if ( approx == TRUE ) {
-      extinction <- function (x) mu
-      tree <- sim.globalBiDe.taxa.age.function.fastApprox(lambda,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,nTaxa,age,MRCA,1000,1000)
-      return (tree)
-    } else {
-      extinction <- function (x) mu
-      tree <- sim.globalBiDe.taxa.age.function(lambda,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,nTaxa,age,MRCA,1000,1000)
-      return (tree)
-    }
-  } else if ( class(lambda) == "numeric" && class(mu) == "function" ) {
-    # should we use linear function approximation?
-    if ( approx == TRUE ) {
-      speciation <- function (x) lambda
-      tree <- sim.globalBiDe.taxa.age.function.fastApprox(speciation,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,nTaxa,age,MRCA,1000,1000)
-      return (tree)
-    } else {
-      speciation <- function (x) lambda
-      tree <- sim.globalBiDe.taxa.age.function(speciation,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,nTaxa,age,MRCA,1000,1000)
-      return (tree)
-    }
-  } else if ( class(lambda) == "function" && class(mu) == "function" ) {
-    # should we use linear function approximation?
-    if ( approx == TRUE ) {
-      tree <- sim.globalBiDe.taxa.age.function.fastApprox(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,nTaxa,age,MRCA,1000,1000)
-      return (tree)
-    } else {
-      tree <- sim.globalBiDe.taxa.age.function(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,nTaxa,age,MRCA,1000,1000)
-      return (tree)
-    }
-  } else {
+sim.globalBiDe.taxa.age <- function(n,nTaxa,age,lambda,mu,massExtinctionTimes=c(),massExtinctionSurvivalProbabilities=c(),samplingProbability=1.0,MRCA=TRUE) {
+
+  if ( length(massExtinctionTimes) != length(massExtinctionSurvivalProbabilities) ) {
+    stop("Number of mass-extinction times needs to equals the number of mass-extinction survival probabilities!")
+  }
+
+  if ( (!inherits(lambda, "numeric") && !inherits(lambda, "function")) || (!inherits(mu, "numeric") && !inherits(mu, "function"))) {
     stop("Unexpected parameter types for lambda and mu!")
   }
+  
+  # test if we got constant values for the speciation and extinction rates
+  if ( inherits(lambda, "numeric") && inherits(mu, "numeric") ) {
+    # call simulation for constant rates (much faster)
+    trees <- sim.globalBiDe.taxa.age.constant(n,nTaxa,age,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA)
+    return (trees)
+  } else {
+    # convert the speciation rate into a function if necessary
+    if ( inherits(lambda, "numeric") ) {
+      speciation <- function (x) lambda
+    } else {
+      speciation <- lambda
+    }
+    # convert the extinction rate into a function if necessary
+    if ( inherits(mu, "numeric") ) {
+      extinction <- function (x) mu
+    } else {
+      extinction <- mu
+    }
+
+    approxFuncs <- tess.prepare.pdf(speciation,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,age,c())
+    
+    trees <- sim.globalBiDe.taxa.age.function(n,nTaxa,age,speciation,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA,approxFuncs$r,approxFuncs$s)
+    
+    return (trees)
+  } 
 
 }
 
@@ -95,197 +91,67 @@ sim.globalBiDe.taxa.age <- function(lambda,mu,massExtinctionTimes=c(),massExtinc
 # @brief Simulate a tree conditioned on the number of taxa and
 #        the age of the tree.
 #
-# @date Last modified: 2012-09-11
+#
+# Simulate the n speciation times using the inverse cdf given in Equation (9).
+#
+# @date Last modified: 2012-12-17
 # @author Sebastian Hoehna
-# @version 1.0
+# @version 1.1
 # @since 2012-09-11, version 1.0
 #
-# @param    lambda                                        scalar        speciation rate function
-# @param    mu                                            scalar        extinction rate function
-# @param    nTaxa                                         scalar        number of taxa at present
-# @param    T                                             scalar        the age
-# @return                                                 phylo         a random tree
-#
-################################################################################
-sim.globalBiDe.taxa.age.constant <- function(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,nTaxa,T,MRCA,nTimeSteps=1000,nBlocks=1000) {
-
-  div    <- lambda - mu
-  origin <- T 
-
-  # now draw the random time speciation times
-  times         <- c()
-  x <- 1
-  if (MRCA == TRUE) x <- 2
-  if ( (nTaxa-x) > 0) {
-    for (i in 1:(nTaxa-x)) { # for each speciation time
-      u           <- runif(1,0,1)
-      times[i]    <- 1.0/div * log((lambda - mu * exp((-div)*origin) - mu * (1.0 - exp((-div) * origin)) * u )/(lambda - mu * exp((-div) * origin) - lambda * (1.0 - exp(( -div ) * origin)) * u ) )
-    } # end loop over each speciation event
-  }
-
-  # now we have the vector of speciation times, which just need to be converted to a phylogeny
-  times         <- c(T,T - sort(times))
-
-  # create a list with all taxa
-  taxa          <- list()
-  for (i in 1:nTaxa) {
-    taxon       <- list(name=sprintf("Tip_%i",i),time=0.0)
-    taxa[[i]]   <- taxon
-  }
-
-  # build tree by merging taxa
-  i            <- length(times)
-  while (length(taxa) >= 2 ) {
-    # get left child
-    index       <- ceiling(length(taxa)*runif(1,0,1))
-    left        <- taxa[[index]]
-    taxa[index] <- NULL
-    # get right child
-    index       <- ceiling(length(taxa)*runif(1,0,1))
-    right       <- taxa[[index]]
-    taxa[index] <- NULL
-    # build the new parent
-    t           <- times[i]
-    parent      <- list(name=sprintf("(%s:%f,%s:%f)",left$name,t-left$time,right$name,t-right$time),time=t)
-    taxa[[length(taxa)+1]]    <- parent
-    i           <- i - 1
-  }
-
-  newick <- ""
-  if (MRCA == FALSE) {
-    newick      <- sprintf("%s:%f;",taxa[[1]]$name,T-taxa[[1]]$time)
-  } else { 
-    newick      <- sprintf("%s;",taxa[[1]]$name)
-  }
-
-  # construct a tree from the phylo class
-  tree          <- read.tree(text=newick)
-
-  return (tree)
-}
-
-
-
-################################################################################
-# 
-# @brief Simulate a tree conditioned on the number of taxa and
-#        the age of the tree.
-#
-# @date Last modified: 2012-09-11
-# @author Sebastian Hoehna
-# @version 1.0
-# @since 2012-09-11, version 1.0
-#
-# @param    lambda                                        function      speciation rate function
-# @param    mu                                            function      extinction rate function
+# @param    n                                             scalar        number of simulations
 # @param    nTaxa                                         scalar        number of taxa at present
 # @param    age                                           scalar        the age
-# @param    massExtinctionTimes                           vector        timse at which mass-extinctions happen
-# @param    massExtinctionSurvivalProbabilities           vector        survival probability of a mass extinction event
-# @param    samplingProbability                           scalar        probability of random sampling at present
-# @param    approx                                        boolean       should linear function approximation be used
+# @param    lambda                                        scalar        speciation rate function
+# @param    mu                                            scalar        extinction rate function
 # @return                                                 phylo         a random tree
 #
 ################################################################################
-sim.globalBiDe.taxa.age.function <- function(lambda,mu,massExtinctionTimes=c(),massExtinctionSurvivalProbabilities=c(),samplingProbability=1.0,nTaxa,T,MRCA,nTimeSteps=1000,nBlocks=1000) {
+sim.globalBiDe.taxa.age.constant <- function(n,nTaxa,age,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA) {
 
-  age <- T
-  # we need to compute the inverse of the cumulative distribution function first
-  divisor       <- 1 - globalBiDe.equations.pSurvival(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,0,T,T,log=FALSE)*exp(globalBiDe.equations.rate(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,0,T,T))
-  normalizingConstant <- 1.0
-  integrand     <- function(x) {
-    a <- lambda(x) * globalBiDe.equations.p1(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,x,T,log=FALSE) / divisor / normalizingConstant
-    return (a)
+  # if we have mass-extinction events, then we use the function-integration approach
+  # because the closed form solutions only apply to models without mass-extinctions.
+  if ( length(massExtinctionTimes) > 0 ) {
+    speciation <- function(x) lambda
+    extinction <- function(x) mu
+    approxFuncs <- tess.prepare.pdf(speciation,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,age,c())    
+    trees <- sim.globalBiDe.taxa.age.function(n,nTaxa,age,speciation,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA,approxFuncs$r,approxFuncs$s)
+    return (trees)
+  } else {
+
+    div    <- lambda - mu
+    origin <- age 
+    b <- samplingProbability * lambda
+    d <- mu - lambda *(1-samplingProbability)
+
+    # start to simulate n trees
+    trees <- list()
+    for ( j in 1:n ) {
+
+      # now draw the random time speciation times
+      times         <- c()
+      x <- 1
+      if (MRCA == TRUE) x <- 2
+      if ( (nTaxa-x) > 0) {
+        
+        # for each speciation time
+        u           <- runif(nTaxa-x,0,1)
+        times       <- 1/(b-d)*log((b - d*exp((-b+d)*age) -d*(1-exp((-b+d)*age)) *u )/(b - d*exp((-b+d)*age) -b*(1.0-exp((-b+d)*age)) *u )   )  
+
+        # now we have the vector of speciation times, which just need to be converted to a phylogeny
+        times         <- c(sort(times,decreasing=FALSE),age)
+      } else {
+        times         <- age
+      }
+      tree          <- tess.create.phylo(times, root = !MRCA)
+
+      trees[[j]]    <- tree
+    } # end for each simulation
+
+    return (trees)
   }
-  normalizingConstant <- tess.integrate(integrand,lower=0,upper=age)
-  
-  index         <- 2
-  lastTime      <- 0
-  lastUsedTime  <- 0
-  # we break the inverse cumulative distribution function into 'nBlocks' equally spaced discrete intervals
-  values        <- c()
-
-  # the first value is obviously 0
-  values[1]     <- 0
-  intervalSize  <- T/nTimeSteps
-  F_remainder   <- 0
-  for (i in 1:nTimeSteps) { # loop over each time step
-    # compute the time at step i
-    time           <- i*intervalSize
-
-    # compute the integral of the density function between the last time and the new time
-    F_N            <- F_remainder + tess.integrate(integrand,lower=lastTime,upper=time)
-    blocks         <- floor(F_N*nBlocks)
-    F_remainder    <- F_N - (blocks/nBlocks)
-    if (blocks > 0) {
-      # compute the time increase for each small discrete step of the inverse cumulative distribution function
-      increasePerBlock <- (time - lastUsedTime) / blocks
-      for (j in 1:blocks) { # loop over each block
-        # store the time of the inverse cumulative distribution function f(x) = t, where x = index/nBlocks
-        values[index] <- values[index-1] + increasePerBlock
-
-        # increment the index
-        index         <- index + 1
-      } # end loop over each new block
-      lastUsedTime <- time
-    }
-    lastTime       <- time
-  } # end loop over each time step
-  # add the final stoppping time
-  values[nBlocks+1] <- T
-
-  # now draw the random time speciation times
-  times         <- c()
-  x <- 1
-  if (MRCA == TRUE) x <- 2
-  if ( (nTaxa-x) > 0) {
-    for (i in 1:(nTaxa-x)) { # for each speciation time
-      u           <- runif(1,0,1)
-      index       <- ceiling(u*nBlocks)
-      times[i]    <- values[index] + (values[index+1] - values[index])*( u - ((index-1)/nBlocks))
-    } # end loop over each speciation event
-  }
-
-  # now we have the vector of speciation times, which just need to be converted to a phylogeny
-  times         <- c(T,T - sort(times))
-  
-  # create a list with all taxa
-  taxa          <- list()
-  for (i in 1:nTaxa) {
-    taxon       <- list(name=sprintf("Tip_%i",i),time=0.0)
-    taxa[[i]]   <- taxon
-  }
-
-  # build tree by merging taxa
-  i            <- length(times)
-  while (length(taxa) >= 2 ) {
-    # get left child
-    index       <- ceiling(length(taxa)*runif(1,0,1))
-    left        <- taxa[[index]]
-    taxa[index] <- NULL
-    # get right child
-    index       <- ceiling(length(taxa)*runif(1,0,1))
-    right       <- taxa[[index]]
-    taxa[index] <- NULL
-    # build the new parent
-    t           <- times[i]
-    parent      <- list(name=sprintf("(%s:%f,%s:%f)",left$name,t-left$time,right$name,t-right$time),time=t)
-    taxa[[length(taxa)+1]]    <- parent
-    i           <- i - 1
-  }
-
-  newick <- ""
-  if (MRCA == FALSE) {
-    newick      <- sprintf("%s:%f;",taxa[[1]]$name,age-taxa[[1]]$time)
-  } else { 
-    newick      <- sprintf("%s;",taxa[[1]]$name)
-  }
-
-  # construct a tree from the phylo class
-  tree          <- read.tree(text=newick)
-  
-  return (tree)
 }
+
 
 
 
@@ -295,15 +161,18 @@ sim.globalBiDe.taxa.age.function <- function(lambda,mu,massExtinctionTimes=c(),m
 #        the age of the tree. This is the fast approximation
 #        procedure using precomputed integral functions.
 #
-# @date Last modified: 2012-09-18
+# Simulate the n speciation times using the inverse cdf given in Equation (9).
+#
+# @date Last modified: 2012-12-17
 # @author Sebastian Hoehna
-# @version 1.0
+# @version 1.1
 # @since 2012-09-18, version 1.0
 #
-# @param    lambda                                        function      speciation rate function
-# @param    mu                                            function      extinction rate function
+# @param    n                                             scalar        number of simulations
 # @param    nTaxa                                         scalar        number of taxa at present
 # @param    age                                           scalar        the age
+# @param    lambda                                        function      speciation rate function
+# @param    mu                                            function      extinction rate function
 # @param    massExtinctionTimes                           vector        timse at which mass-extinctions happen
 # @param    massExtinctionSurvivalProbabilities           vector        survival probability of a mass extinction event
 # @param    samplingProbability                           scalar        probability of random sampling at present
@@ -311,145 +180,50 @@ sim.globalBiDe.taxa.age.function <- function(lambda,mu,massExtinctionTimes=c(),m
 # @return                                                 phylo         a random tree
 #
 ################################################################################
-sim.globalBiDe.taxa.age.function.fastApprox <- function(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,nTaxa,age,MRCA,nTimeSteps,nBlocks,precomputed=FALSE) {
+sim.globalBiDe.taxa.age.function <- function(n,nTaxa,age,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA,r,s) {
 
-  T <- age
-  if ( precomputed == FALSE ) {
-    assign("maxTime", age, envir = .TessEnv)
-    N <- get("N_DISCRETIZATION_NBLOCKS",envir=.TessEnv)
+  tess.pdf <- function(x) lambda(x) * globalBiDe.equations.p1.fastApprox(r, s, samplingProbability, x, age, log=FALSE)
 
-    # adjust mass-extinction times
-    if (length(massExtinctionTimes) > 0) {
-      for (i in 1:length(massExtinctionTimes)) {
-        tmp <- N * massExtinctionTimes[i] / age
-        massExtinctionTimes[i] <- (round(tmp) / N) * age
-      }
+#  inverse <- n * nTaxa > 10000
+  inverse <- TRUE
+
+  if ( inverse ) {
+    n2 <- 1001
+    obj.pdf <- function(t, state, pars) list(tess.pdf(t))
+    times <- seq(0, age, length=n2)
+    ## This step is slow for large n - perhaps 1/2s for 1000 points
+    zz <- lsoda(0, times, obj.pdf, tcrit=age)[,2]
+    const <- last(zz)
+    zz <- zz / const ## Normalise
+    icdf <- approxfun(zz, times) ## Interpolate
+    speciationEventSim <- function(n)  icdf(runif(n))
+  } else {
+    sup <- find.max(tess.pdf, age, 101)
+    speciationEventSim <- function(n)  rejection.sample.simple(n, tess.pdf, c(0, age), sup)
+  }
+
+  # start to simulate n trees
+  trees <- list()
+  for ( j in 1:n ) {
+    
+    # now draw the random time speciation times
+    times         <- c()
+    x <- 1
+    if (MRCA == TRUE) x <- 2
+    if ( (nTaxa-x) > 0) {
+      times <- speciationEventSim(nTaxa-x)
+
+      # now we have the vector of speciation times, which just need to be converted to a phylogeny
+      times         <- c(age - sort(times,decreasing=TRUE),age)
+    } else {
+      times         <- age
     }
 
+    # create the tree
+    tree          <- tess.create.phylo( times, root = !MRCA )
 
-    # precompute the rate integral
-    riv <- c()
-    riv[1] <- 0
-    for (i in 2:(N+1)) {
-      riv[i] <- riv[i-1] + globalBiDe.equations.rate(lambda, mu, massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability, (i-2)*age/N, (i-1)*age/N, age)
-    }
-    assign("rateIntegralValues", riv, envir = .TessEnv)
-
-    # precompute the survival integral
-    siv <- c()
-    siv[1] <- 0
-    survival <- function(t) {
-      s <- mu(t) * exp(rateIntegral(t))
-      return (s)
-    }
-    for (i in 2:(N+1)) {
-      lower <- (i-2)*age/N
-      upper <- (i-1)*age/N
-      siv[i] <- siv[i-1] + tess.integrate(survival,lower, upper)
-      if ( length(massExtinctionTimes) > 0 ) {
-        for (j in 1:length(massExtinctionTimes) ) {
-          if ( lower < massExtinctionTimes[j] && upper >= massExtinctionTimes[j] ) {
-            siv[i] <- siv[i] - (massExtinctionSurvivalProbabilities[j]-1)*rateIntegral(massExtinctionTimes[j])
-          }
-        }
-      }
-    }
-    assign("survivalIntegralValues", siv, envir = .TessEnv)
-  }
+    trees[[j]]    <- tree
+  } #end for each simulation
   
-  # we need to compute the inverse of the cumulative distribution function first
-  divisor       <- 1 - globalBiDe.equations.pSurvival.fastApprox(0,age,age,log=FALSE)*exp(rateIntegral(age))
-  normalizingConstant <- 1.0
-  integrand     <- function(x) {
-    a <- lambda(x) * globalBiDe.equations.p1.fastApprox(x,age,log=FALSE) / divisor / normalizingConstant
-    return (a)
-  }
-  normalizingConstant <- tess.integrate(integrand,lower=0,upper=age)
-  
-  index         <- 2
-  lastTime      <- 0
-  lastUsedTime  <- 0
-  # we break the inverse cumulative distribution function into 'nBlocks' equally spaced discrete intervals
-  values        <- c()
-
-  # the first value is obviously 0
-  values[1]     <- 0
-  intervalSize  <- age/nTimeSteps
-  F_remainder   <- 0
-  for (i in 1:nTimeSteps) { # loop over each time step
-    # compute the time at step i
-    time           <- i*intervalSize
-
-    # compute the integral of the density function between the last time and the new time
-    F_N            <- F_remainder + tess.integrate(integrand,lower=lastTime,upper=time)
-    blocks         <- floor(F_N*nBlocks)
-    F_remainder    <- F_N - (blocks/nBlocks)
-    if (blocks > 0) {
-      # compute the time increase for each small discrete step of the inverse cumulative distribution function
-      increasePerBlock <- (time - lastUsedTime) / blocks
-      for (j in 1:blocks) { # loop over each block
-        # store the time of the inverse cumulative distribution function f(x) = t, where x = index/nBlocks
-        values[index] <- values[index-1] + increasePerBlock
-
-        # increment the index
-        index         <- index + 1
-      } # end loop over each new block
-      lastUsedTime <- time
-    }
-    lastTime       <- time
-  } # end loop over each time step
-  # add the final stoppping time
-  values[nBlocks+1] <- age
-
-  # now draw the random time speciation times
-  times         <- c()
-  x <- 1
-  if (MRCA == TRUE) x <- 2
-  if ( (nTaxa-x) > 0) {
-    for (i in 1:(nTaxa-x)) { # for each speciation time
-      u           <- runif(1,0,1)
-      index       <- ceiling(u*nBlocks)
-      times[i]    <- values[index] + (values[index+1] - values[index])*( u - ((index-1)/nBlocks))
-    } # end loop over each speciation event
-  }
-  
-  # now we have the vector of speciation times, which just need to be converted to a phylogeny
-  times         <- c(age,age - sort(times))
-  
-  # create a list with all taxa
-  taxa          <- list()
-  for (i in 1:nTaxa) {
-    taxon       <- list(name=sprintf("Tip_%i",i),time=0.0)
-    taxa[[i]]   <- taxon
-  }
-
-  # build tree by merging taxa
-  i            <- length(times)
-  while (length(taxa) >= 2 ) {
-    # get left child
-    index       <- ceiling(length(taxa)*runif(1,0,1))
-    left        <- taxa[[index]]
-    taxa[index] <- NULL
-    # get right child
-    index       <- ceiling(length(taxa)*runif(1,0,1))
-    right       <- taxa[[index]]
-    taxa[index] <- NULL
-    # build the new parent
-    t           <- times[i]
-    parent      <- list(name=sprintf("(%s:%f,%s:%f)",left$name,t-left$time,right$name,t-right$time),time=t)
-    taxa[[length(taxa)+1]]    <- parent
-    i           <- i - 1
-  }
-
-  newick <- ""
-  if (MRCA == FALSE) {
-    newick      <- sprintf("%s:%f;",taxa[[1]]$name,age-taxa[[1]]$time)
-  } else { 
-    newick      <- sprintf("%s;",taxa[[1]]$name)
-  }
-
-  # construct a tree from the phylo class
-  tree          <- read.tree(text=newick)
-  
-  return (tree)
+  return (trees)
 }
