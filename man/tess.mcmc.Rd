@@ -2,10 +2,11 @@
 \alias{tess.mcmc}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{tess.mcmc: Metropolis-Hastings algorithm.}
-\description{tess.mcmc constructs a Markov chain Monte Carlo algorithm (MCMC) by implementing a general Metropolis-Hastings algorithm.Any model can be used where the likelihood is known and thus can be passed in as an argument. The parameters have to be continuous. Proposals are taken from a normal distribution centered around the current value. The algorithm creates sampels from the posterior probility distribution and returns these a CODA mcmc object.}
+\description{tess.mcmc constructs a Markov chain Monte Carlo algorithm (MCMC) by implementing a general Metropolis-Hastings algorithm. Any model can be used where the likelihood is known and thus can be passed in as an argument. The parameters have to be continuous. Proposals are taken from a normal distribution centered around the current value. The varaince of the new proposed values is initalized with 1 but can be automatically optimized when using the option adaptive = TRUE. The algorithm creates sampels from the posterior probility distribution and returns these a CODA mcmc object.}
 \usage{
-tess.mcmc(likelihoodFunction,priors,parameters,logTransforms,iterations,
-             burnin=round(iterations/3),thining=1)
+tess.mcmc(likelihoodFunction,priors,parameters,logTransforms,delta,
+             iterations,burnin=round(iterations/3),thining=1,
+             adaptive=TRUE,verbose=FALSE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -13,9 +14,12 @@ tess.mcmc(likelihoodFunction,priors,parameters,logTransforms,iterations,
   \item{priors}{A list of functions of the log-prior-densities of each parameter.}
   \item{parameters}{The initial parameter value list.}
   \item{logTransforms}{A vector of booleans telling if log-transform for the parameters should be used (e.g. for rates).}
+  \item{delta}{The variance of new proposed values.}
   \item{iterations}{The number of iterations for the MCMC.}
   \item{burnin}{The number of iterations to burn before starting the MCMC.}
   \item{thining}{The frequency of taking a sample of the parameters.}
+  \item{adaptive}{Should we use adaptive MCMC?}
+  \item{verbose}{Do you want detailed information during the run?}
 }
 \value{Returns the posterior samples for the parameters.}
 \references{Hoehna, S.: Fast simulation of reconstructed phylogenies under global, time-dependent birth-death processes. 2012, submitted }
@@ -42,7 +46,7 @@ prior_turnover <- function(x) { dexp(x,rate=0.1,log=TRUE) }
 priors <- c(prior_diversification,prior_turnover)
 
 # Note, the number of iterations and the burnin is too small here and should be adapted for real analyses
-samples <- tess.mcmc(likelihood,priors,runif(2,0,1),c(TRUE,TRUE),10,10)
+samples <- tess.mcmc(likelihood,priors,runif(2,0,1),logTransforms=c(TRUE,TRUE),delta=c(0.1,0.1),iterations=100,burnin=20)
 #plot(samples)
 summary(samples)
 colMeans(samples)

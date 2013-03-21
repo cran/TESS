@@ -5,7 +5,8 @@
 \description{sim.globalBiDe.taxa.age simlates a reconstructed phylogenetic tree under a global, time-dependent birth-death process conditioned on the age of the tree and number of taxa sampled. The rates may be any positive function of time or a constant. The process starts at time 0 and goes forward in time, hence the rates and events should be interpreted in the time after the origin. Additionally, mass-extinction event can be provided and a random taxon sampling probability. It is possible to start either with the origin (1 species) or with the most recent common ancestor (2 species).}
 \usage{
 sim.globalBiDe.taxa.age(n, nTaxa, age, lambda, mu, massExtinctionTimes = c(), 
-   massExtinctionSurvivalProbabilities = c(), samplingProbability = 1, MRCA = TRUE)
+   massExtinctionSurvivalProbabilities = c(), samplingProbability = 1, 
+   samplingStrategy = "random", MRCA = TRUE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -17,6 +18,7 @@ sim.globalBiDe.taxa.age(n, nTaxa, age, lambda, mu, massExtinctionTimes = c(),
   \item{massExtinctionTimes}{The set of mass-extinction times after the start of the process.}
   \item{massExtinctionSurvivalProbabilities}{The set of survival probabilities for each speciation event. The set must have the same length as the set of mass-extinction times.}
   \item{samplingProbability}{The probability for a species to be included in the sample.}
+  \item{samplingStrategy}{The strategy how samples were obtained. Options are: random|diversified.}
   \item{MRCA}{Does the process start with the most recent common ancestor?}
 }
 \value{Returns a tree in 'phylo' format.
@@ -39,6 +41,7 @@ sim.globalBiDe.taxa.age(n=1,2.0,1.0,nTaxa=10,age=1,MRCA=TRUE)
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.
+\keyword{ datagen }
 %\keyword{ likelihood }
 %\keyword{ tree }
 %\keyword{ birth-death }% __ONLY ONE__ keyword per line

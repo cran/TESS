@@ -89,12 +89,11 @@ tess.create.phylo <- function(times,root=FALSE,tip.label=NULL) {
 
 tess.prepare.pdf <- function(lambda, mu, massExtinctionTimes,
                          massExtinctionSurvivalProbabilities,
-                         samplingProbability,
                          age, t.crit.f) {
   
   ## Constants for now, but this is the resolution of reporting
   ## (different to calculation) for the two stages of integration.
-  n1 <- 101
+  n1 <- 1001
 
   
   if ( length(massExtinctionTimes) == 0 ) {
@@ -129,24 +128,78 @@ last <- function(x) x[[length(x)]]
 tess.ode.piecewise <- function(lambda, mu, times, t.crit, t.crit.p) {
   obj <- function(t, state, parms) {
     r <- mu(t) - lambda(t)
-    s <- mu(t) * exp(state[[1]])
-    list(c(r, s))
+    list(c(r))
   }
-
 
   tmax <- times[length(times)]
   n <- length(t.crit) - 1L
   t.split <- r.split <- s.split <- vector("list", n)
   bin <- findInterval(times, t.crit, TRUE)
-  y <- c(0, 0)
+  y <- c(0)
 
+  xx <- c()
+  r_points <- c()
+  s_points <- c()
   for ( i in seq_len(n) ) {
     j <- i + 1L
-    t.split[[i]] <- ti <- c(t.crit[[i]], times[bin == i], t.crit[[j]])
+    t.split[[i]] <- ti <- c(t.crit[[i]], times[bin == i], t.crit[[j]]-1E-9)
     yi <- lsoda(y, ti, obj, tcrit=t.crit[[j]])
 
-    r.split[[i]] <- yi[,2]
-    s.split[[i]] <- yi[,3]
+    xx <- c(xx,ti)
+    r_points <- c(r_points,yi[,2])
+    
+    y <- yi[nrow(yi),-1]
+
+    if ( !is.na(t.crit.p[[j]]) ) {
+      y[1] <- y[1] - log(t.crit.p[[j]])
+    }
+  }
+  xx <- c(xx, tmax + 1e-8)
+  r_points <- c(r_points,r_points[length(r_points)])
+  rate <- approxfun(xx,r_points)
+
+  f <- function(t) mu(t)*exp(rate(t))
+  probs <- array(0,length(xx))
+  for (i in length(xx):2) {
+    u <- xx[i]
+    l <- xx[i-1]
+    val <- integrate(f,upper=u,lower=l)$value / exp(rate(l))
+    probs[i-1] <- val + probs[i] * exp(rate(u) - rate(l))
+  }
+  p_s <- approxfun(xx,probs)
+
+  list(r=rate,s=p_s)
+}
+
+## This carries out integration for the time-varying
+## speciation/extinction model with functions lambda and mu,
+## outputting at the times in the vector 'times'.  The vectors
+## 't.crit'  and 't.crit.p' contain break points or mass-extinction events.
+tess.ode.piecewise2 <- function(lambda, mu, times, t.crit, t.crit.p) {
+  obj <- function(t, state, parms) {
+    r <- mu(tmax-t) - lambda(tmax-t)
+    s <- mu(tmax-t) * exp(state[[1]])
+    list(c(r,s))
+  }
+
+  tmax <- times[length(times)]
+  n <- length(t.crit) - 1L
+  t.split <- r.split <- s.split <- vector("list", n)
+  bin <- findInterval(times, t.crit, TRUE)
+  y <- c(0,0)
+
+  xx <- c()
+  r_points <- c()
+  s_points <- c()
+  for ( i in seq_len(n) ) {
+    j <- i + 1L
+    t.split[[i]] <- ti <- c(t.crit[[i]], times[bin == i], t.crit[[j]]-1E-9)
+    yi <- lsoda(y, ti, obj, tcrit=t.crit[[j]])
+
+    xx <- c(xx,ti)
+    r_points <- c(r_points,yi[,2])
+    s_points <- c(s_points,yi[,3])
+    
     y <- yi[nrow(yi),-1]
 
     if ( !is.na(t.crit.p[[j]]) ) {
@@ -154,40 +207,22 @@ tess.ode.piecewise <- function(lambda, mu, times, t.crit, t.crit.p) {
       y[2] <- y[2] - (t.crit.p[[j]]-1) * exp(y[1])
     }
   }
+  xx <- c(xx, tmax + 1e-8)
+  r_points <- c(r_points,r_points[length(r_points)])
+  s_points <- c(s_points,s_points[length(s_points)])
+  rate <- approxfun(xx,r_points[length(r_points)]-rev(r_points))
 
-  ## There should be a more general way of dealing with single values
-  ## within an interval -- this will come up elsewhere in the general
-  ## case.  For now, fudge a second point.  You'll need three points
-  ## here if you want to replace approxfun with splinefun.
-  t.split <- c(t.split, list(c(tmax, tmax + 1e-8)))
-  r.split <- c(r.split, list(rep.int(y[[1]], 2)))
-  s.split <- c(s.split, list(rep.int(last(s.split[[n]]), 2)))
-
-  list(r=make.piecewise(t.split, r.split),
-       s=make.piecewise(t.split, s.split))
-}
-
-
-## Constructs a piecewise function, allowing jumps in a function.  Let
-## xx and yy be lists, with each element containing a vector of x or y
-## values respectively.  That is x[[i]] and y[[i]] will each contain n
-## points, defining a smooth line.  This uses R's linear interpolation
-## function to construct functions over each pair of x/y coordinates,
-## returning a vectorised function.
-make.piecewise <- function(xx, yy) {
-  if ( length(xx) == 1 )
-    return(approxfun(xx, yy))
-  ff <- mapply(approxfun, xx, yy)
-  t.crit <- c(sapply(xx, first), last(last(xx)))
-  function(x) {
-    i <- findInterval(x, t.crit, TRUE)
-    ret <- numeric(length(x))
-    for ( j in unique(i) ) {
-      k <- i == j
-      ret[k] <- ff[[j]](x[k])
-    }
-    ret
+  samples <- rev(s_points)
+  p <- array(0,length(xx))
+  for (i in length(xx):2) {
+    u <- xx[i]
+    l <- xx[i-1]
+    val <- (samples[i-1] - samples[i]) / exp(rate(tmax) - rate(u))
+    p[i-1] <- val + p[i] * exp(rate(u) - rate(l))
   }
+  p_s <- approxfun(xx,p)
+
+  list(r=rate,s=p_s)
 }
 
 

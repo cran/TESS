@@ -47,38 +47,43 @@
 # @return                                                 phylo         a random tree
 #
 ################################################################################
-sim.globalBiDe.taxa.age <- function(n,nTaxa,age,lambda,mu,massExtinctionTimes=c(),massExtinctionSurvivalProbabilities=c(),samplingProbability=1.0,MRCA=TRUE) {
+sim.globalBiDe.taxa.age <- function(n,nTaxa,age,lambda,mu,massExtinctionTimes=c(),massExtinctionSurvivalProbabilities=c(),samplingProbability=1.0,samplingStrategy="random",MRCA=TRUE) {
 
   if ( length(massExtinctionTimes) != length(massExtinctionSurvivalProbabilities) ) {
     stop("Number of mass-extinction times needs to equals the number of mass-extinction survival probabilities!")
   }
 
-  if ( (!inherits(lambda, "numeric") && !inherits(lambda, "function")) || (!inherits(mu, "numeric") && !inherits(mu, "function"))) {
+  if ( samplingStrategy != "random" && samplingStrategy != "diversified" ) {
+    stop("Wrong choice of argument for \"samplingStrategy\". Possible option are random|diversified.")
+  }
+
+  if ( (!is.numeric(lambda) && !inherits(lambda, "function")) || (!is.numeric(mu) && !inherits(mu, "function"))) {
     stop("Unexpected parameter types for lambda and mu!")
   }
   
   # test if we got constant values for the speciation and extinction rates
-  if ( inherits(lambda, "numeric") && inherits(mu, "numeric") ) {
+  if ( is.numeric(lambda) && is.numeric(mu) ) {
     # call simulation for constant rates (much faster)
-    trees <- sim.globalBiDe.taxa.age.constant(n,nTaxa,age,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA)
+    trees <- sim.globalBiDe.taxa.age.constant(n,nTaxa,age,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA)
     return (trees)
   } else {
+    
     # convert the speciation rate into a function if necessary
-    if ( inherits(lambda, "numeric") ) {
-      speciation <- function (x) lambda
+    if ( is.numeric(lambda) ) {
+      speciation <- function (x) rep(lambda,length(x))
     } else {
       speciation <- lambda
     }
     # convert the extinction rate into a function if necessary
-    if ( inherits(mu, "numeric") ) {
-      extinction <- function (x) mu
+    if ( is.numeric(mu) ) {
+      extinction <- function (x) rep(mu,length(x))
     } else {
       extinction <- mu
     }
 
-    approxFuncs <- tess.prepare.pdf(speciation,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,age,c())
+    approxFuncs <- tess.prepare.pdf(speciation,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,age,c())
     
-    trees <- sim.globalBiDe.taxa.age.function(n,nTaxa,age,speciation,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA,approxFuncs$r,approxFuncs$s)
+    trees <- sim.globalBiDe.taxa.age.function(n,nTaxa,age,speciation,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA,approxFuncs$r,approxFuncs$s)
     
     return (trees)
   } 
@@ -107,22 +112,35 @@ sim.globalBiDe.taxa.age <- function(n,nTaxa,age,lambda,mu,massExtinctionTimes=c(
 # @return                                                 phylo         a random tree
 #
 ################################################################################
-sim.globalBiDe.taxa.age.constant <- function(n,nTaxa,age,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA) {
+sim.globalBiDe.taxa.age.constant <- function(n,nTaxa,age,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA) {
 
   # if we have mass-extinction events, then we use the function-integration approach
   # because the closed form solutions only apply to models without mass-extinctions.
   if ( length(massExtinctionTimes) > 0 ) {
     speciation <- function(x) lambda
     extinction <- function(x) mu
-    approxFuncs <- tess.prepare.pdf(speciation,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,age,c())    
-    trees <- sim.globalBiDe.taxa.age.function(n,nTaxa,age,speciation,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA,approxFuncs$r,approxFuncs$s)
+    approxFuncs <- tess.prepare.pdf(speciation,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,age,c())    
+    trees <- sim.globalBiDe.taxa.age.function(n,nTaxa,age,speciation,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA,approxFuncs$r,approxFuncs$s)
     return (trees)
   } else {
 
+    # set the random taxon sampling probability
+    if (samplingStrategy == "random") {
+      rho <- samplingProbability
+    } else {
+      rho <- 1.0
+    }
+    
+    # if we use diversified sampling then we just sample m instead of n speciation events
+    if (samplingStrategy == "diversified") {
+      m <- nTaxa
+      nTaxa <- round(nTaxa / samplingProbability)
+    }
+    
     div    <- lambda - mu
     origin <- age 
-    b <- samplingProbability * lambda
-    d <- mu - lambda *(1-samplingProbability)
+    b <- rho * lambda
+    d <- mu - lambda *(1-rho)
 
     # start to simulate n trees
     trees <- list()
@@ -140,9 +158,17 @@ sim.globalBiDe.taxa.age.constant <- function(n,nTaxa,age,lambda,mu,massExtinctio
 
         # now we have the vector of speciation times, which just need to be converted to a phylogeny
         times         <- c(sort(times,decreasing=FALSE),age)
+        
+        # if we use diversified sampling we need to remove the last n-m species
+        if (samplingStrategy == "diversified") {
+          if ( m < nTaxa ) {
+            times <- times[-(1:(nTaxa-m))]
+          }
+        }
       } else {
         times         <- age
       }
+      
       tree          <- tess.create.phylo(times, root = !MRCA)
 
       trees[[j]]    <- tree
@@ -180,26 +206,35 @@ sim.globalBiDe.taxa.age.constant <- function(n,nTaxa,age,lambda,mu,massExtinctio
 # @return                                                 phylo         a random tree
 #
 ################################################################################
-sim.globalBiDe.taxa.age.function <- function(n,nTaxa,age,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA,r,s) {
-
-  tess.pdf <- function(x) lambda(x) * globalBiDe.equations.p1.fastApprox(r, s, samplingProbability, x, age, log=FALSE)
-
-#  inverse <- n * nTaxa > 10000
-  inverse <- TRUE
-
-  if ( inverse ) {
-    n2 <- 1001
-    obj.pdf <- function(t, state, pars) list(tess.pdf(t))
-    times <- seq(0, age, length=n2)
-    ## This step is slow for large n - perhaps 1/2s for 1000 points
-    zz <- lsoda(0, times, obj.pdf, tcrit=age)[,2]
-    const <- last(zz)
-    zz <- zz / const ## Normalise
-    icdf <- approxfun(zz, times) ## Interpolate
-    speciationEventSim <- function(n)  icdf(runif(n))
+sim.globalBiDe.taxa.age.function <- function(n,nTaxa,age,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA,r,s) {
+  
+  # set the random taxon sampling probability
+  if (samplingStrategy == "random") {
+    rho <- samplingProbability
   } else {
-    sup <- find.max(tess.pdf, age, 101)
-    speciationEventSim <- function(n)  rejection.sample.simple(n, tess.pdf, c(0, age), sup)
+    rho <- 1.0
+  }
+
+
+  n2 <- 1001
+  times <- seq(0, age, length=n2)
+  const_zz <- 1.0 - globalBiDe.equations.pSurvival.fastApprox(r,s,rho,0,age,age,log=FALSE) * exp(r(age) - log(rho))
+  zz <- 1.0 - ( (1.0 - globalBiDe.equations.pSurvival.fastApprox(r,s,rho,times,age,age,log=FALSE) * exp(r(age) - log(rho) - r(times))) / const_zz )
+  zz[n2] <- 1.0
+  icdf <- approxfun(zz, times) ## Interpolate
+  speciationEventSim <- function(n)  icdf(runif(n))
+  
+#  tess.pdf <- function(x) lambda(x) * globalBiDe.equations.p1.fastApprox(r, s, samplingProbability, x, age, log=FALSE)
+#  obj.pdf <- function(t, state, pars) list(tess.pdf(t))
+#  ## This step is slow for large n - perhaps 1/2s for 1000 points
+#  zz <- lsoda(0, times, obj.pdf, tcrit=age)[,2]
+#  const <- last(zz)
+#  zz <- zz / const ## Normalise
+
+  # if we use diversified sampling then we just sample m instead of n speciation events
+  if (samplingStrategy == "diversified") {
+    m <- nTaxa
+    nTaxa <- round(nTaxa / samplingProbability)
   }
 
   # start to simulate n trees
@@ -215,6 +250,13 @@ sim.globalBiDe.taxa.age.function <- function(n,nTaxa,age,lambda,mu,massExtinctio
 
       # now we have the vector of speciation times, which just need to be converted to a phylogeny
       times         <- c(age - sort(times,decreasing=TRUE),age)
+      
+      # if we use diversified sampling we need to remove the last n-m species
+      if (samplingStrategy == "diversified") {
+        if ( m < nTaxa ) {
+          times <- times[-(1:(nTaxa-m))]
+        }
+      }
     } else {
       times         <- age
     }

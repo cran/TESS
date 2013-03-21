@@ -40,7 +40,7 @@ prior_turnover <- function(x) { dexp(x,rate=0.1,log=TRUE) }
 priors <- c(prior_diversification,prior_turnover)
 
 # Note, the number of iterations and the burnin is too small here and should be adapted for real analyses
-samples <- tess.mcmc(likelihood,priors,c(1,0.1),c(TRUE,TRUE),10,10)
+samples <- tess.mcmc(likelihood,priors,c(1,0.1),c(TRUE,TRUE),c(0.1,0.1),10,10)
 
 tmrca <- max(branching.times(cettiidae))
 # The simulation function

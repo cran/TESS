@@ -1,4 +1,3 @@
-require(coda)
 
 
 ################################################################################
@@ -29,14 +28,15 @@ tess.PosteriorPredictiveTest <- function(samples,observation,statistic) {
   for ( i in 1:length(samples)) {
 
     # compute the statistic for the i-th sample
-    sampled_statistics[i] <- statistic(samples[[i]])
+    tmp <- statistic(samples[[i]])
 
-    if ( sampled_statistics[i] < obs ) {
+    if ( is.finite(tmp) ) {
       count <- count + 1
+      sampled_statistics[count] <- tmp
     }
   }
 
-  p <- count / length(samples)
+  p <- length(sampled_statistics[sampled_statistics < obs]) / length(sampled_statistics)
 
   return (list(samples=sampled_statistics,pvalue=p))
 }

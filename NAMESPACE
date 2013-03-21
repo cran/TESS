@@ -1,5 +1,5 @@
 
-export(globalBiDe.likelihood,sim.globalBiDe.age, sim.globalBiDe.taxa.age, sim.globalBiDe.taxa, tess.mcmc, tess.PosteriorPrediction, tess.PosteriorPredictiveTest, tess.steppingStoneSampling)
+export(globalBiDe.likelihood,globalBiDe.nTaxa.expected,sim.globalBiDe.age, sim.globalBiDe.taxa.age, sim.globalBiDe.taxa, tess.mcmc, tess.PosteriorPrediction, tess.PosteriorPredictiveTest, tess.steppingStoneSampling)
 
 import(ape,coda,deSolve)
 

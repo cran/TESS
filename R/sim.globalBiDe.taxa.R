@@ -47,37 +47,41 @@
 # @return                                                 list          list of random trees (type phylo)
 #
 ################################################################################
-sim.globalBiDe.taxa <- function(n,nTaxa,max,lambda,mu,massExtinctionTimes=c(),massExtinctionSurvivalProbabilities=c(),samplingProbability=1.0,MRCA=TRUE,t_crit=c()) {
+sim.globalBiDe.taxa <- function(n,nTaxa,max,lambda,mu,massExtinctionTimes=c(),massExtinctionSurvivalProbabilities=c(),samplingProbability=1.0,samplingStrategy="random",MRCA=TRUE,t_crit=c()) {
 
   if ( length(massExtinctionTimes) != length(massExtinctionSurvivalProbabilities) ) {
     stop("Number of mass-extinction times needs to equals the number of mass-extinction survival probabilities!")
   }
 
-  if ( (!inherits(lambda, "numeric") && !inherits(lambda, "function")) || (!inherits(mu, "numeric") && !inherits(mu, "function"))) {
+  if ( samplingStrategy != "random" && samplingStrategy != "diversified" ) {
+    stop("Wrong choice of argument for \"samplingStrategy\". Possible option are random|diversified.")
+  }
+
+  if ( (!is.numeric(lambda) && !inherits(lambda, "function")) || (!is.numeric(mu) && !inherits(mu, "function"))) {
     stop("Unexpected parameter types for lambda and mu!")
   }
   
   # test if we got constant values for the speciation and extinction rates
-  if ( class(lambda) == "numeric" && class(mu) == "numeric" ) {
+  if ( is.numeric(lambda) && is.numeric(mu) ) {
     # call simulation for constant rates (much faster)
-    trees <- sim.globalBiDe.taxa.constant(n,nTaxa,max,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA)
+    trees <- sim.globalBiDe.taxa.constant(n,nTaxa,max,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA)
     return (trees)
   } else  {
     
     # convert the speciation rate into a function if necessary
-    if ( inherits(lambda, "numeric") ) {
-      speciation <- function (x) lambda
+    if ( is.numeric(lambda) ) {
+      speciation <- function (x) rep(lambda,length(x))
     } else {
       speciation <- lambda
     }
     # convert the extinction rate into a function if necessary
-    if ( inherits(mu, "numeric") ) {
-      extinction <- function (x) mu
+    if ( is.numeric(mu) ) {
+      extinction <- function (x) rep(mu,length(x))
     } else {
       extinction <- mu
     }
     
-    trees <- sim.globalBiDe.taxa.function(n,nTaxa,max,speciation,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA,t_crit)
+    trees <- sim.globalBiDe.taxa.function(n,nTaxa,max,speciation,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA,t_crit)
     return (trees)
   }
 
@@ -91,6 +95,7 @@ sim.globalBiDe.taxa <- function(n,nTaxa,max,lambda,mu,massExtinctionTimes=c(),ma
 #
 # 1) Simulate the time of the process using Monte Carlo sampling, see Equation (11).
 # 2) Simulate the tree by calling sim.globalBiDe.taxa.age.constant
+# Note: The sampling strategy does not affect the probability of the age of the tree
 #
 # @date Last modified: 2013-01-30
 # @author Sebastian Hoehna
@@ -106,33 +111,46 @@ sim.globalBiDe.taxa <- function(n,nTaxa,max,lambda,mu,massExtinctionTimes=c(),ma
 # @return                                                 list          list of random trees (type phylo)
 #
 ################################################################################
-sim.globalBiDe.taxa.constant <- function(n,nTaxa,max,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA) {
+sim.globalBiDe.taxa.constant <- function(n,nTaxa,max,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA) {
 
-  if ( length(massExtinctionTimes) > 0 ) {
+#  if ( length(massExtinctionTimes) > 0 ) {
     # compute the cumulative distribution function for the time of the process
     pdf <- function(x) globalBiDe.equations.pN.constant(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,nTaxa,0,x,MRCA,log=FALSE)
 
-    # preparations for the rejection sampling
-    xx <- seq(0, max, length=101)
-    yy <- pdf(xx)
-    i <- which.max(yy)
-    sup <- optimize(pdf, range(na.omit(xx[(i-1):(i+1)])), maximum=TRUE)$max
-
-    # randomly draw the age of the tree
-    # use rejection sampling
-    T <- rejection.sample.simple(n,pdf,c(0,max),sup)
-  } else {
-    u <- runif(n,0,1)
-    T <- log((-lambda * samplingProbability - lambda * u^(1/nTaxa) + mu * u^(1/nTaxa) + lambda * samplingProbability * u^(1/nTaxa))/(lambda * samplingProbability * (-1 + u^(1/nTaxa)))) / (lambda - mu)
+  # use the inverse-cdf to sample
+  repeat { # find a better interval
+    obj.pdf <- function(t, state, pars) list(pdf(t))
+    ## This step is slow for large n - perhaps 1/2s for 1000 points
+    n1 <- 11
+    times <- seq(0, max, length=n1)
+    zz <- lsoda(0, times, obj.pdf, tcrit=max)[,2]
+    m <- min(which( (zz[n1] - zz)/zz[n1] < 1E-5))
+    if ( m > (n1/2) ) {
+      # now we do it properly
+      n2 <- 101
+      times <- seq(0, max, length=n2)
+      zz <- lsoda(0, times, obj.pdf, tcrit=max)[,2]
+      zz <- zz / zz[n2]  # normalize
+      break
+    } else {
+      max <- m*1.1
+    }
   }
+
+  icdf <- approxfun(zz, times) ## Interpolate
+  simT <- function(n)  icdf(runif(n))
+  T <- simT(n)
+#  } else {
+#    u <- runif(n,0,1)
+#    T <- log((-lambda * samplingProbability - lambda * u^(1/nTaxa) + mu * u^(1/nTaxa) + lambda * samplingProbability * u^(1/nTaxa))/(lambda * samplingProbability * (-1 + u^(1/nTaxa)))) / (lambda - mu)
+#  }
     
   trees <- list()
-  start <- Sys.time()
   # for each simulation
   for ( i in 1:n ) {
 
     # delegate the call to the simulation condition on both, age and nTaxa
-    tree <- sim.globalBiDe.taxa.age.constant(1,nTaxa,T[i],lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA)
+    tree <- sim.globalBiDe.taxa.age.constant(1,nTaxa,T[i],lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA)
   
     # add the new tree to the list
     trees[[i]] <- tree[[1]]
@@ -149,6 +167,7 @@ sim.globalBiDe.taxa.constant <- function(n,nTaxa,max,lambda,mu,massExtinctionTim
 #
 # 1) Simulate the time of the process using Monte Carlo sampling, see Equation (11).
 # 2) Simulate the tree by calling sim.globalBiDe.taxa.age.function
+# Note: The sampling strategy does not affect the probability of the age of the tree
 #
 # @date Last modified: 2013-01-30
 # @author Sebastian Hoehna
@@ -161,31 +180,43 @@ sim.globalBiDe.taxa.constant <- function(n,nTaxa,max,lambda,mu,massExtinctionTim
 # @return                 phylo         a random tree
 #
 ################################################################################
-sim.globalBiDe.taxa.function <- function(n,nTaxa,max,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA,t_crit=c()) {
+sim.globalBiDe.taxa.function <- function(n,nTaxa,max,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA,t_crit=c()) {
 
   # approximate the rate integral and the survival probability integral for fas computations
-  approxFuncs <- tess.prepare.pdf(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,max,t_crit)
+  approxFuncs <- tess.prepare.pdf(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,max,t_crit)
 
   # compute the cumulative distribution function for the time of the process
   pdf <- function(x) globalBiDe.equations.pN.fastApprox(approxFuncs$r,approxFuncs$s,samplingProbability,nTaxa,0,x,MRCA,log=FALSE)
 
-  # preparations for the rejection sampling
-  xx <- seq(0, max, length=101)
-  yy <- pdf(xx)
-  i <- which.max(yy)
-  sup <- optimize(pdf, range(na.omit(xx[(i-1):(i+1)])), maximum=TRUE)$max
+  repeat { # find a better interval
+    obj.pdf <- function(t, state, pars) list(pdf(t))
+    ## This step is slow for large n - perhaps 1/2s for 1000 points
+    n1 <- 11
+    times <- seq(0, max, length=n1)
+    zz <- lsoda(0, times, obj.pdf, tcrit=max)[,2]
+    m <- min(which( (zz[n1] - zz)/zz[n1] < 1E-5))
+    if ( m > (n1/2) ) {
+      # now we do it properly
+      n2 <- 101
+      times <- seq(0, max, length=n2)
+      zz <- lsoda(0, times, obj.pdf, tcrit=max)[,2]
+      zz <- zz / zz[n2]  # normalize
+      break
+    } else {
+      max <- m*1.1
+    }
+  }
 
-  # randomly draw the age of the tree
-  # use rejection sampling
-  T <- rejection.sample.simple(n,pdf,c(0,max),sup)
+  icdf <- approxfun(zz, times) ## Interpolate
+  simT <- function(n)  icdf(runif(n))
+  T <- simT(n)
   
   trees <- list()
-  start <- Sys.time()
   # for each simulation
   for ( i in 1:n ) {
 
     # delegate the call to the simulation condition on both, age and nTaxa
-    tree <- sim.globalBiDe.taxa.age.function(1,nTaxa,age=T[i],lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA,approxFuncs$r,approxFuncs$s)
+    tree <- sim.globalBiDe.taxa.age.function(1,nTaxa,age=T[i],lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA,approxFuncs$r,approxFuncs$s)
 
     # add the new tree to the list
     trees[[i]] <- tree[[1]]

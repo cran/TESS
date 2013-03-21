@@ -63,7 +63,7 @@ globalBiDe.equations.pSurvival.constant <- function(lambda,mu,massExtinctionTime
   prev_time <- t_low
   if ( length(massExtinctionTimes) > 0 ) {
     for (j in 1:length(massExtinctionTimes) ) {
-      cond <-  ( TRUE == (t_low < massExtinctionTimes[j]) ) == (t_high >= massExtinctionTimes[j])
+      cond <-  (t_low < massExtinctionTimes[j]) & (t_high >= massExtinctionTimes[j])
       part1  <- part1 + ifelse(cond,  accumulatedMassExtinction * ( exp(rate*massExtinctionTimes[j]) - exp(rate*prev_time)), 0.0)
       prev_time <- ifelse(cond, massExtinctionTimes[j], prev_time)
       accumulatedMassExtinction <- accumulatedMassExtinction / ifelse(cond, massExtinctionSurvivalProbabilities[j], 1.0)
@@ -74,7 +74,7 @@ globalBiDe.equations.pSurvival.constant <- function(lambda,mu,massExtinctionTime
   part1 <- part1 + accumulatedMassExtinction * ( exp(rate*t_high) - exp(rate*prev_time))
 
   # add sampling
-  cond <-  ( TRUE == (t_low < T) ) == (t_high >= T)
+  cond <- (t_low < T) & (t_high >= T)
   accumulatedMassExtinction <- accumulatedMassExtinction / ifelse(cond, samplingProbability, 1.0)
   part2 <- part2 + ifelse(cond, (samplingProbability-1)*exp( rate*(T) ) * accumulatedMassExtinction, 0.0)
 
@@ -98,9 +98,9 @@ globalBiDe.equations.pSurvival.constant <- function(lambda,mu,massExtinctionTime
 #
 # See Equation (2) from Hoehna, S., 2013, Fast simulation of reconstructed phylogenies under global, time-dependent birth-death processes
 #
-# @date Last modified: 2013-01-30
+# @date Last modified: 2013-03-01
 # @author Sebastian Hoehna
-# @version 1.1
+# @version 1.2
 # @since 2012-09-18, version 1.0
 #
 # @param    r             function      rate integral function
@@ -113,12 +113,21 @@ globalBiDe.equations.pSurvival.constant <- function(lambda,mu,massExtinctionTime
 #
 ################################################################################
 globalBiDe.equations.pSurvival.fastApprox <- function(r, s, rho, t_low, t_high, T, log=FALSE) {
-  den <- (1 + ( s(t_high) - s(t_low) ) / exp(r(t_low)))
+#  den <- (1 + ( s(t_high) - s(t_low) ) / exp(r(t_low)))
+  b <- s(t_low)
+  c <- exp(r(t_high) - r(t_low))
+  d <- s(t_high)
+
+  den <- (1 + b - c*d)
 
   # add sampling
-  den <- ifelse( (TRUE == (t_low < T) ) == (t_high >= T), den - (rho-1)*exp( r(T) - r(t_low) - log(rho) ), den)
+  cond <- (t_low < T) & (t_high >= T)
+  den[cond] <- den[cond] - (rho-1)*exp( r(T) - r(t_low[cond]) - log(rho) )
 
-  res <- 1 / den
+#  res <- ifelse( is.finite(den) & den > 0, 1/den, 0 )
+  res <- rep(0,length(den))
+  tmp <- is.finite(den) & den > 0
+  res[tmp] <- 1/den
   
   if ( log == TRUE )
     res <- log( res )
@@ -166,7 +175,7 @@ globalBiDe.equations.pN.constant <- function(lambda,mu,massExtinctionTimes,massE
     p_s <- globalBiDe.equations.pSurvival.constant(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,s,t,t,log=FALSE)
     r   <- (mu-lambda)*(t-s) - log(samplingProbability)
     for (j in seq_len(length(massExtinctionTimes)) ) {
-      cond <-  ( TRUE == (s < massExtinctionTimes[j]) ) == (t >= massExtinctionTimes[j])
+      cond <-  (s < massExtinctionTimes[j]) & (t >= massExtinctionTimes[j])
       r  <- r - ifelse(cond, log(massExtinctionSurvivalProbabilities[j]), 0.0)
     }
     e   <- p_s * exp(r)
@@ -247,6 +256,90 @@ globalBiDe.equations.pN.fastApprox <- function(rate,surv,samplingProbability,i,s
 
 ################################################################################
 # 
+# @brief  Calculate the expected number of taxa when the process start at time
+#         s with 1 (or two) species and ends at time t.
+#
+# 
+# @see    Equation (3), (5) and (12) in Hoehna, S.: Fast simulation of reconstructed phylogenies under global, time-dependent birth-death processes. 2013, Bioinformatics
+#
+# @date Last modified: 2013-01-30
+# @author Sebastian Hoehna
+# @version 1.1
+# @since 2012-09-11, version 1.0
+#
+# @param    lambda                                        scalar        speciation rate
+# @param    mu                                            scalar        extinction rate
+# @param    massExtinctionTimes                           vector        timse at which mass-extinctions happen
+# @param    massExtinctionSurvivalProbabilities           vector        survival probability of a mass extinction event
+# @param    samplingProbability                           scalar        probability of random sampling at present
+# @param    s                                             scalar        start time
+# @param    t                                             scalar        stop time
+# @param    MRCA                                          boolean       does the tree start at the mrca?
+# @return                                                 scalar        expected number of taxa
+#
+################################################################################
+globalBiDe.equations.nTaxa.expected.constant <- function(s,t,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA=FALSE) {
+
+  p_s <- globalBiDe.equations.pSurvival.constant(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,s,t,t,log=FALSE)
+  r   <- (mu-lambda)*(t-s) - log(samplingProbability)
+  for (j in seq_len(length(massExtinctionTimes)) ) {
+    cond <-  (s < massExtinctionTimes[j]) & (t >= massExtinctionTimes[j])
+    r  <- r - ifelse(cond, log(massExtinctionSurvivalProbabilities[j]), 0.0)
+  }
+  e   <- p_s * exp(r)
+  e[e > 1] <- 1
+
+  if ( MRCA == FALSE ) {
+    n  <- 1.0 / e
+  } else {
+    n   <- 2.0 / e
+  }
+
+  return (n)
+}
+
+
+################################################################################
+# 
+# @brief  Calculate the expected number of taxa when the process start at time
+#         s with 1 (or two) species and ends at time t.
+#
+# @see    Equation (3), (5) and (12) in Hoehna, S.: Fast simulation of reconstructed phylogenies under global, time-dependent birth-death processes. 2013, Bioinformatics
+#
+# @date Last modified: 2013-01-30
+# @author Sebastian Hoehna
+# @version 1.1
+# @since 2012-09-18, version 1.0
+#
+# @param    rate                                          function      rate integral function
+# @param    surv                                          function      survival integral function
+# @param    samplingProbability                           scalar        probability of random sampling at present
+# @param    s                                             scalar        start time
+# @param    t                                             scalar        stop time
+# @param    MRCA                                          boolean       does the tree start at the mrca?
+# @return                                                 scalar        the expected number of species
+#
+################################################################################
+globalBiDe.equations.nTaxa.expected.fastApprox <- function(s,t,rate,surv,samplingProbability,MRCA=FALSE) {
+
+  
+  p_s <- globalBiDe.equations.pSurvival.fastApprox(rate,surv,samplingProbability,s,t,t,log=FALSE)
+  r   <- rate(t) - rate(s) - log(samplingProbability)
+  e   <- p_s * exp(r)
+  e[e > 1] <- 1
+
+  if ( MRCA == FALSE ) {
+    n   <- 1.0 / e
+  } else {
+    n   <- 2.0 / e
+  }
+
+  return (n)
+}
+
+
+################################################################################
+# 
 # @brief  Calculate the probability of exactly 1 lineage surviving until time T
 #         if we started with 1 lineage at time t.
 #
@@ -277,9 +370,7 @@ globalBiDe.equations.p1.constant <- function(lambda,mu,massExtinctionTimes,massE
   rate <- (mu - lambda)*(T-t)
   # add mass-extinction
   for (j in seq_len(length(massExtinctionTimes)) ) {
-    if ( t < massExtinctionTimes[j] && T >= massExtinctionTimes[j] ) {
-      rate <- rate - log(massExtinctionSurvivalProbabilities[j])
-    }
+    rate <- rate - ifelse( t < massExtinctionTimes[j] & T >= massExtinctionTimes[j], log(massExtinctionSurvivalProbabilities[j]), 0 )
   }
 
   # add sampling
@@ -326,6 +417,90 @@ globalBiDe.equations.p1.fastApprox <- function(r,s,samplingProbability,t,T,log=F
   }
 
   return (p)
+}
+
+
+################################################################################
+# 
+# @brief  Calculate the probability of no speciation event on the reconstructed
+#         process between time t and t'.
+#
+# @date Last modified: 2013-02-06
+# @author Sebastian Hoehna
+# @version 1.2
+# @since 2013-02-06, version 1.2
+#
+# @param    lambda        scalar        speciation rate
+# @param    mu            scalar        extinction rate
+# @param    t             scalar        time
+# @param    T             scalar        present time
+# @param    log           bool          if in log-scale
+# @return                 scalar        ln-probability
+#
+################################################################################
+globalBiDe.equations.pWaiting.constant <- function(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,t,t_prime,T,n,log=FALSE) {
+
+  u <- 1.0 - globalBiDe.equations.pSurvival.constant(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,t,t_prime,T,log=FALSE) * exp( (mu-lambda)*(t_prime-t) - log(samplingProbability) ) 
+  tmp <- u * globalBiDe.equations.pSurvival.constant(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,t,T,T,log=FALSE) / globalBiDe.equations.pSurvival.constant(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,t,t_prime,T,log=FALSE)
+
+  # some modification so that we can compute the log
+  tmp[tmp > 1.0] <- 1.0
+  p <- log(1.0 - tmp ) * n
+  
+  if (log == FALSE) {
+    p <- exp(p)
+  }
+
+  return(p)
+
+}
+
+
+################################################################################
+# 
+# @brief  Calculate the probability of no speciation event on the reconstructed
+#         process between time t and t'.
+#
+# @date Last modified: 2013-02-06
+# @author Sebastian Hoehna
+# @version 1.2
+# @since 2013-02-06, version 1.2
+#
+# @param    lambda        scalar        speciation rate
+# @param    mu            scalar        extinction rate
+# @param    t             scalar        time
+# @param    T             scalar        present time
+# @param    log           bool          if in log-scale
+# @return                 scalar        ln-probability
+#
+################################################################################
+globalBiDe.equations.pWaiting.ageSampling <- function(lambda,r,s,samplingProbability,t,t_prime,T,n,log=FALSE) {
+
+  pdf <- function(x) lambda(x)*globalBiDe.equations.pSurvival.fastApprox(r, s, samplingProbability(x), x, T, T, log=FALSE)
+  obj.pdf <- function(t, state, pars) list(pdf(t))
+  ## This step is slow for large n - perhaps 1/2s for 1000 points
+  n2 <- 11
+  times <- seq(t, t_prime, length=n2)
+  zz <- ode(0, times, obj.pdf, method = "lsoda", tcrit=t_prime)[,2]
+
+  p <- -n*zz[n2]
+  
+#  tryCatch( {zz <- integrate(pdf,lower=t,upper=t_prime)$value
+#    p <- -n*zz},warning = function(w) {}, error = function(e) {
+#      cat("Caught an error in integrate:\n")
+#      cat("t =",t,"\n")
+#      cat("t_prime =",t_prime,"\n")
+#      cat("pdf(t) =",pdf(t),"\n")
+#      cat("pdf(t_prime) =",pdf(t_prime),"\n")
+#      zz <- integrate(pdf,lower=t,upper=t_prime)$value
+#      stop("error in integrate")})
+
+  if (log == FALSE) {
+    p <- exp(p)
+  }
+
+  return(p)
+
 }
 
 
