@@ -124,29 +124,20 @@ sim.globalBiDe.age.constant <- function(n,age,lambda,mu,massExtinctionTimes,mass
   # precompute the probabilities
   p_s <- globalBiDe.equations.pSurvival.constant(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,rho,0,age,age,log=FALSE)
   r   <- (mu-lambda)*age - log(rho)
-    
+  for (j in seq_len(length(massExtinctionTimes)) ) {
+    cond <-  (0 < massExtinctionTimes[j]) & (age >= massExtinctionTimes[j])
+    r  <- r - ifelse(cond, log(massExtinctionSurvivalProbabilities[j]), 0.0)
+  }
+
+  # randomly draw a number of taxa
+  m <- rgeom(n, p_s * exp(r)) + 1
+  if ( MRCA == TRUE ) m <- m + rgeom(n, p_s * exp(r)) + 1
+  
   trees <- list()
   # for each simulation
   for ( i in 1:n ) {
-    # randomly draw a number of taxa
-    u <- runif(1,0,1)
-
-    nTaxa <- 0
-  
-    if (MRCA == TRUE) {
-      nTaxa <- 1
-      while (u > 0) {
-        nTaxa <- nTaxa + 1
-        p <- (nTaxa-1) * (p_s * exp(r))^2 * ( 1 - p_s * exp(r))^(nTaxa-2)
-        u <- u - p
-      }
-    } else { 
-      while (u > 0) {
-        nTaxa <- nTaxa + 1
-        p <- p_s * exp(r) * ( 1 - p_s * exp(r))^(nTaxa-1)
-        u <- u - p
-      }
-    }
+    nTaxa <- m[i]
+#    nTaxa <- rbinom(1,m[i],rho)
 
     # check if we actually have a tree
     if ( nTaxa < 2 ) {
@@ -203,41 +194,27 @@ sim.globalBiDe.age.function <- function(n,age,lambda,mu,massExtinctionTimes,mass
   # precompute the probabilities
   p_s <- globalBiDe.equations.pSurvival.fastApprox(approxFuncs$r,approxFuncs$s,rho,0,age,age,log=FALSE)
   r   <- approxFuncs$r(age) - log(rho)
+
+  # randomly draw a number of taxa
+  nTaxa <- rgeom(n, p_s * exp(r)) + 1
+  if ( MRCA == TRUE ) nTaxa <- nTaxa + rgeom(n, p_s * exp(r)) + 1
   
   trees <- list()
   # for each simulation
   for ( i in 1:n ) {
-  
-    # randomly draw a number of taxa
-    u <- runif(1,0,1)
-
-    nTaxa <- 0
-
-    if (MRCA == TRUE) {
-      nTaxa <- 1
-      while (u > 0) {
-        nTaxa <- nTaxa + 1
-        p <- (nTaxa-1) * (p_s * exp(r))^2 * ( 1 - p_s * exp(r))^(nTaxa-2)
-        u <- u - p
-      }
-    } else { 
-      while (u > 0) {
-        nTaxa <- nTaxa + 1
-        p <- p_s * exp(r) * ( 1 - p_s * exp(r))^(nTaxa-1)
-        u <- u - p
-      }
-    }
 
     # check if we actually have a tree
-    if ( nTaxa < 2 ) {
+    if ( nTaxa[i] < 2 ) {
       tree <- 1
     } else {
+
       # delegate the call to the simulation condition on both, age and nTaxa
-      tree <- sim.globalBiDe.taxa.age.function(1,nTaxa,age,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA=MRCA,approxFuncs$r,approxFuncs$s)[[1]]
-  
+      tree <- sim.globalBiDe.taxa.age.function(1,nTaxa[i],age,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA=MRCA,approxFuncs$r,approxFuncs$s)[[1]]
     }
+
     trees[[i]] <- tree
-  } #end for each simulation
+  } # end for each simulation
+  
   return (trees)
     
 }

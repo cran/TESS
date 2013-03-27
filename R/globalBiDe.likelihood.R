@@ -173,7 +173,7 @@ globalBiDe.likelihood.constant <- function(tree,lambda,mu,massExtinctionTimes,ma
   } 
 
   # did we condition on observing n species today
-  if ( CONDITION == "taxa" )    lnl <- lnl - globalBiDe.equations.pN.constant(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,rho,nTaxa,0,PRESENT,MRCA,log=TRUE)
+  if ( CONDITION == "taxa" )    lnl <- lnl - globalBiDe.equations.pN.constant(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,rho,nTaxa,0,PRESENT,SURVIVAL=TRUE,MRCA,log=TRUE)
 
   # if we assume diversified sampling, we need to multiply with the probability that all missing species happened after the last speciation event
   if ( samplingStrategy == "diversified" ) {
@@ -184,7 +184,7 @@ globalBiDe.likelihood.constant <- function(tree,lambda,mu,massExtinctionTimes,ma
     F_t <- p_0_t / p_0_T
     # get an estimate of the actual number of taxa
     m <- round(nTaxa / samplingProbability)
-    lnl <- lnl + (m-nTaxa) * log(F_t) + log(choose(m,nTaxa))
+    lnl <- lnl + (m-nTaxa) * log(F_t) + lchoose(m,nTaxa)
   }
 
   # multiply the probability for each speciation time
@@ -260,7 +260,7 @@ globalBiDe.likelihood.function <- function(tree,lambda,mu,massExtinctionTimes,ma
 
   # prepare the integrals
   tryCatch({
-    approxFuncs <- tess.prepare.pdf(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,PRESENT,c(t.crit,times))
+    approxFuncs <- tess.prepare.pdf(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,PRESENT,c(t.crit,times),TRUE)
     
   # initialize the log likelihood
   lnl <- 0
@@ -279,7 +279,7 @@ globalBiDe.likelihood.function <- function(tree,lambda,mu,massExtinctionTimes,ma
   } 
 
   # did we condition on observing n species today
-  if ( CONDITION == "taxa" )    lnl <- lnl - globalBiDe.equations.pN.fastApprox(approxFuncs$r,approxFuncs$s,rho,nTaxa,0,PRESENT,MRCA,log=TRUE)
+  if ( CONDITION == "taxa" )    lnl <- lnl - globalBiDe.equations.pN.fastApprox(approxFuncs$r,approxFuncs$s,rho,nTaxa,0,PRESENT,SURVIVAL=TRUE,MRCA,log=TRUE)
 
   # if we assume diversified sampling, we need to multiply with the probability that all missing species happened after the last speciation event
   if ( samplingStrategy == "diversified" ) {
@@ -292,7 +292,7 @@ globalBiDe.likelihood.function <- function(tree,lambda,mu,massExtinctionTimes,ma
 
     # get an estimate of the actual number of taxa
     m <- round(nTaxa / samplingProbability)
-    lnl <- lnl + (m-nTaxa) * log(F_t) + log(choose(m,nTaxa))
+    lnl <- lnl + (m-nTaxa) * log(F_t) + lchoose(m,nTaxa)
   }
 
   # multiply the probability for each speciation time

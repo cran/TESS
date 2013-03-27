@@ -55,30 +55,35 @@ globalBiDe.equations.pSurvival.constant <- function(lambda,mu,massExtinctionTime
 
   # compute the rate
   rate <- mu - lambda
-   
+
+  # do the integration of int_{t_low}^{t_high} ( mu(s) exp(rate(t,s)) ds )
+  # where rate(t,s) = int_{t}^{s} ( mu(x)-lambda(x) dx ) - sum_{for all t < m_i < s in massExtinctionTimes }( log(massExtinctionSurvivalProbability[i]) )
+
+  # we compute the integral stepwise for each epoch between mass-extinction events
   # add mass-extinction
-  part1 <- 0.0
-  part2 <- 0.0
   accumulatedMassExtinction <- 1.0
   prev_time <- t_low
+  den <- 1.0
   if ( length(massExtinctionTimes) > 0 ) {
     for (j in 1:length(massExtinctionTimes) ) {
       cond <-  (t_low < massExtinctionTimes[j]) & (t_high >= massExtinctionTimes[j])
-      part1  <- part1 + ifelse(cond,  accumulatedMassExtinction * ( exp(rate*massExtinctionTimes[j]) - exp(rate*prev_time)), 0.0)
+      # compute the integral for this time episode until the mass-extinction event
+      den <- den + ifelse(cond, exp(-rate*t_low) * mu / (rate * accumulatedMassExtinction ) * ( exp(rate* massExtinctionTimes[j]) - exp(rate*prev_time)) , 0 )
+      # store the current time so that we remember from which episode we need to integrate next
       prev_time <- ifelse(cond, massExtinctionTimes[j], prev_time)
-      accumulatedMassExtinction <- accumulatedMassExtinction / ifelse(cond, massExtinctionSurvivalProbabilities[j], 1.0)
-      part2  <- part2 + ifelse(cond, (massExtinctionSurvivalProbabilities[j]-1)*exp( rate*(massExtinctionTimes[j]) ) * accumulatedMassExtinction, 0.0) 
+      accumulatedMassExtinction <- accumulatedMassExtinction * ifelse(cond, massExtinctionSurvivalProbabilities[j], 1.0)
+      # integrate over the tiny time interval of the mass-extinction event itself and add it to the integral
+      den <- den - ifelse(cond, (massExtinctionSurvivalProbabilities[j]-1) / accumulatedMassExtinction * exp( rate*(massExtinctionTimes[j] - t_low) ), 0.0 )
     }
   }
 
-  part1 <- part1 + accumulatedMassExtinction * ( exp(rate*t_high) - exp(rate*prev_time))
+  # add the integral of the final epoch until the present time
+  den <- den + exp(-rate*t_low) * mu / (rate * accumulatedMassExtinction ) * ( exp(rate*t_high) - exp(rate*prev_time))
 
   # add sampling
   cond <- (t_low < T) & (t_high >= T)
-  accumulatedMassExtinction <- accumulatedMassExtinction / ifelse(cond, samplingProbability, 1.0)
-  part2 <- part2 + ifelse(cond, (samplingProbability-1)*exp( rate*(T) ) * accumulatedMassExtinction, 0.0)
-
-  den <- 1.0 + part1 * (mu/rate) / exp(rate*t_low) - part2 / exp(rate*t_low)
+  accumulatedMassExtinction <- accumulatedMassExtinction * ifelse(cond, samplingProbability, 1.0)
+  den <- den - ifelse(cond, (samplingProbability-1)*exp( rate*(T-t_low) ) / accumulatedMassExtinction, 0.0)
 
   res <- 1.0 / den
 
@@ -86,6 +91,9 @@ globalBiDe.equations.pSurvival.constant <- function(lambda,mu,massExtinctionTime
     res <- log( res )
   }
 
+  
+#  cat(sprintf("P( N(%.1f)>0 | N(%.1f)=1 ) = %f\n",t_high,t_low,res))
+  
   return (res)
 
 }
@@ -113,25 +121,32 @@ globalBiDe.equations.pSurvival.constant <- function(lambda,mu,massExtinctionTime
 #
 ################################################################################
 globalBiDe.equations.pSurvival.fastApprox <- function(r, s, rho, t_low, t_high, T, log=FALSE) {
-#  den <- (1 + ( s(t_high) - s(t_low) ) / exp(r(t_low)))
-  b <- s(t_low)
-  c <- exp(r(t_high) - r(t_low))
-  d <- s(t_high)
+  
+  # Remember the following properties of r and s (assuming T = present):
+  # r(x) = int_{0}{x} mu(t) - lambda(t) dt
+  # s(x) = int_{x}{T} mu(t) exp( r(t) ) dt
 
-  den <- (1 + b - c*d)
+  # The probability we want to compute is:
+  # P( N(t_high)>0 | N(t_low)=1 ) = ( 1 + int_{t_low}^{t_high} mu(t)*exp(int_{t_low}^{t}mu(x)-lambda(x)dx) dt )^{-1}
+  # and thus
+  # P( N(t_high)>0 | N(t_low)=1 ) = ( 1 + exp(-r(t_low)) * (s(t_high)-s(t_low)) )^{-1}
+  
+  den <- ( 1 + ( ( s(t_low) - s(t_high) ) / exp(r(t_low)) ) )
+#  den <- ( 1 + ( s(t_low) - s(t_high) ) )
 
   # add sampling
   cond <- (t_low < T) & (t_high >= T)
-  den[cond] <- den[cond] - (rho-1)*exp( r(T) - r(t_low[cond]) - log(rho) )
+  den[cond] <- den[cond] - (rho-1) / rho *exp( r(T) - r(t_low[cond]) )
 
-#  res <- ifelse( is.finite(den) & den > 0, 1/den, 0 )
-  res <- rep(0,length(den))
-  tmp <- is.finite(den) & den > 0
-  res[tmp] <- 1/den
+  res <- ifelse( is.finite(den) & den > 0, 1/den, 0 )
   
   if ( log == TRUE )
     res <- log( res )
 
+  
+#  cat(sprintf("P( N(%.1f)>0 | N(%.1f)=1 ) = %f\n",t_high,t_low,res))
+
+  
   return (res)
 }
 
@@ -162,14 +177,18 @@ globalBiDe.equations.pSurvival.fastApprox <- function(r, s, rho, t_low, t_high, 
 # @return                                                 scalar        log-probability
 #
 ################################################################################
-globalBiDe.equations.pN.constant <- function(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,i,s,t,MRCA=FALSE,log=FALSE) {
+globalBiDe.equations.pN.constant <- function(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,i,s,t,SURVIVAL=FALSE,MRCA=FALSE,log=FALSE) {
   if ( i < 1 ) { # we assume conditioning on survival
     p <- 0
   } else if (i == 1) {
     if ( MRCA == TRUE ) { # we assume conditioning on survival of the two species
       p <- 0
     } else {
-      p   <-  globalBiDe.equations.pSurvival.constant(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,s,t,t,log=TRUE) + (mu-lambda)*(t-s) - log(samplingProbability)
+      if ( SURVIVAL == TRUE ) {
+        p   <-  globalBiDe.equations.pSurvival.constant(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,s,t,t,log=TRUE) + (mu-lambda)*(t-s) - log(samplingProbability)
+      } else {
+        p   <-  2*globalBiDe.equations.pSurvival.constant(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,s,t,t,log=TRUE) + (mu-lambda)*(t-s) - log(samplingProbability)
+      }
     }
   } else {
     p_s <- globalBiDe.equations.pSurvival.constant(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,s,t,t,log=FALSE)
@@ -182,9 +201,17 @@ globalBiDe.equations.pN.constant <- function(lambda,mu,massExtinctionTimes,massE
     e[e > 1] <- 1
 
     if ( MRCA == FALSE ) {
-      p   <- log(p_s) + r + log( 1 - e) * (i-1)
+      if ( SURVIVAL == TRUE ) {
+        p   <- log(p_s) + r + log( 1 - e) * (i-1)
+      } else {
+        p   <- 2*log(p_s) + r + log( 1 - e) * (i-1)
+      }
     } else {
-      p   <- log(i-1) + 2*log(p_s) + 2*r + log( 1 - e) * (i-2)
+      if ( SURVIVAL == TRUE ) {
+        p   <- log(i-1) + 2*log(p_s) + 2*r + log( 1 - e) * (i-2)
+      } else {
+        p   <- log(i-1) + 4*log(p_s) + 2*r + log( 1 - e) * (i-2)
+      }
     }
   }
 
@@ -220,7 +247,7 @@ globalBiDe.equations.pN.constant <- function(lambda,mu,massExtinctionTimes,massE
 # @return                                                 scalar        log-probability
 #
 ################################################################################
-globalBiDe.equations.pN.fastApprox <- function(rate,surv,samplingProbability,i,s,t,MRCA=FALSE,log=FALSE) {
+globalBiDe.equations.pN.fastApprox <- function(rate,surv,samplingProbability,i,s,t,SURVIVAL=FALSE,MRCA=FALSE,log=FALSE) {
 
   if ( i < 1 ) { # we assume conditioning on survival
     p <- 0
@@ -228,7 +255,11 @@ globalBiDe.equations.pN.fastApprox <- function(rate,surv,samplingProbability,i,s
     if ( MRCA == TRUE ) { # we assume conditioning on survival of the two species
       p <- 0
     } else {
-      p   <- globalBiDe.equations.pSurvival.fastApprox(rate,surv,samplingProbability,s,t,t,log=TRUE) + rate(t) - rate(s) - log(samplingProbability)
+      if ( SURVIVAL == TRUE ) {
+        p   <- globalBiDe.equations.pSurvival.fastApprox(rate,surv,samplingProbability,s,t,t,log=TRUE) + rate(t) - rate(s) - log(samplingProbability)
+      } else {
+        p   <- 2*globalBiDe.equations.pSurvival.fastApprox(rate,surv,samplingProbability,s,t,t,log=TRUE) + rate(t) - rate(s) - log(samplingProbability)
+      }
     }
   }
   else {
@@ -238,9 +269,17 @@ globalBiDe.equations.pN.fastApprox <- function(rate,surv,samplingProbability,i,s
     e[e > 1] <- 1
 
     if ( MRCA == FALSE ) {
-      p   <- log(p_s) + r + log( 1 - e) * (i-1)
+      if ( SURVIVAL == TRUE ) {
+        p   <- log(p_s) + r + log( 1 - e) * (i-1)
+      } else {
+        p   <- 2*log(p_s) + r + log( 1 - e) * (i-1)
+      }
     } else {
-      p   <- log(i-1) + 2*log(p_s) + 2*r + log( 1 - e) * (i-2)
+      if ( SURVIVAL == TRUE ) {
+        p   <- log(i-1) + 2*log(p_s) + 2*r + log( 1 - e) * (i-2)
+      } else {
+        p   <- log(i-1) + 4*log(p_s) + 2*r + log( 1 - e) * (i-2)
+      }
     }
 
   }
@@ -382,6 +421,9 @@ globalBiDe.equations.p1.constant <- function(lambda,mu,massExtinctionTimes,massE
     p <- exp( p )
   }
 
+  
+#  cat(sprintf("P( N(%.1f)=1 | N(%.1f)=1 ) = %f\n",T,t,p))
+
   return (p)
 }
 
@@ -408,13 +450,25 @@ globalBiDe.equations.p1.constant <- function(lambda,mu,massExtinctionTimes,massE
 #
 ################################################################################
 globalBiDe.equations.p1.fastApprox <- function(r,s,samplingProbability,t,T,log=FALSE) {
+  # Remember the following properties of r and s (assuming T = present):
+  # r(x) = int_{0}{x} mu(t) - lambda(t) dt
+  # s(x) = int_{x}{T} mu(t) exp( r(t) ) dt
+
+  # The probability we want to compute is:
+  # P( N(T)=1 | N(t)=1 ) = P( N(T)>0 | N(t)=1 )^{2} * exp( int_{t}^{T} mu(x)-lambda(x) dx )
+  # and thus
+  # P( N(t_high)>0 | N(t_low)=1 ) = ( 1 + exp(-r(t_low)) * (s(t_low)-s(t_high)) )^{-1}
+
+  # for simplicity we compute the log-probability
   a <- globalBiDe.equations.pSurvival.fastApprox(r,s,samplingProbability,t,T,T,log=TRUE)
-  b <- r(T) - r(t) - log(samplingProbability)
+  b <- r(T) - r(t) - log(samplingProbability) # Note that we always include the present time and thus always apply uniform taxon sampling
   p <- 2*a + b
 
   if ( log == FALSE ) {
     p <- exp( p )
   }
+
+#  cat(sprintf("P( N(%.1f)=1 | N(%.1f)=1 ) = %f\n",T,t,p))
 
   return (p)
 }

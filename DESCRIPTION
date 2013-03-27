@@ -2,8 +2,8 @@ Package: TESS
 Type: Package
 Title: Fast simulation of reconstructed phylogenetic trees under
         time-dependent birth-death processes
-Version: 1.2.0
-Date: 2013-03-21
+Version: 1.2.1
+Date: 2013-03-27
 Author: Sebastian Hoehna
 Maintainer: Sebastian Hoehna <hoehna@math.su.se>
 Depends: ape, coda, deSolve
@@ -18,7 +18,7 @@ Description: TESS is a package for simulation of reconstructed
         estimation and Bayesian inference.
 License: GPL-3
 LazyLoad: yes
-Packaged: 2013-03-21 20:55:15 UTC; hoehna
+Packaged: 2013-04-22 15:01:44 UTC; hoehna
 NeedsCompilation: no
 Repository: CRAN
-Date/Publication: 2013-03-21 22:48:29
+Date/Publication: 2013-04-22 18:06:47

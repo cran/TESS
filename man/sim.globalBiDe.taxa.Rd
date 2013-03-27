@@ -6,7 +6,7 @@
 \usage{
 sim.globalBiDe.taxa(n, nTaxa, max, lambda, mu, massExtinctionTimes = c(), 
    massExtinctionSurvivalProbabilities = c(), samplingProbability = 1, 
-   samplingStrategy = "random", MRCA = TRUE, t_crit = c())
+   samplingStrategy = "random", SURVIVAL = TRUE, MRCA = TRUE, t_crit = c())
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -19,6 +19,7 @@ sim.globalBiDe.taxa(n, nTaxa, max, lambda, mu, massExtinctionTimes = c(),
   \item{massExtinctionSurvivalProbabilities}{The set of survival probabilities for each speciation event. The set must have the same length as the set of mass-extinction times.}
   \item{samplingProbability}{The probability for a species to be included in the sample.}
   \item{samplingStrategy}{The strategy how samples were obtained. Options are: random|diversified.}
+  \item{SURVIVAL}{Do you want to condition on survival of the process?}
   \item{MRCA}{Does the process start with the most recent common ancestor?}
   \item{t_crit}{The critical time points when a jump in the rate function occurs. Only a help for the numerical integration routine.}
 }
