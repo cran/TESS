@@ -24,14 +24,18 @@ require(coda)
 ################################################################################
 
 
-pathSampling <- function(likelihoodFunction,priorFunction,parameters,logTransforms,iterations,burnin=round(iterations/3),K=50) {
+tess.pathSampling <- function(likelihoodFunction,priorFunction,parameters,logTransforms,iterations,burnin=round(iterations/3),K=50) {
 
   x <- K:0 / K
   beta <- qbeta(x,0.3,1)
 
   # pre-compute current posterior probability
   pp    <- likelihoodFunction(parameters)
-  prior <- priorFunction(parameters)
+  prior <- 0
+  for ( j in 1:length(parameters) ) {
+    prior <- prior + priorFunction[[j]](parameters[j])
+  }
+
 
   # the path values
   pathValues <- c()
@@ -39,15 +43,12 @@ pathSampling <- function(likelihoodFunction,priorFunction,parameters,logTransfor
   for (k in 1:length(beta)) {
     b <- beta[k]
 
-    cat("Sampling for beta =",b,"\n")
-
     samples <- c()
     for (i in 1:(iterations+burnin)) {
-
-      if (i %% 100 == 0)    cat("Iterations -",i,"\n")
     
       # propose new values
       for ( j in 1:length(parameters) ) {
+        new_prior <- prior - priorFunction[[j]](parameters[j])
         if ( logTransforms[j] == TRUE ) {
           if (parameters[j] == 0) {
             stop("Cannot propose new value for a parameter with value 0.0.")
@@ -58,7 +59,8 @@ pathSampling <- function(likelihoodFunction,priorFunction,parameters,logTransfor
           hr            <- log(new_val / parameters[j]) # calculate the Hastings ratio
           parameters[j] <- new_val
           new_pp        <- likelihoodFunction(parameters)
-          new_prior     <- priorFunction(parameters)
+          new_prior     <- new_prior + priorFunction[[j]](parameters[j])
+        
           # compute acceptance ratio for power posterior
           if ( b == 0.0 ) {
             acceptance_ratio <- new_prior-prior+hr
@@ -78,7 +80,7 @@ pathSampling <- function(likelihoodFunction,priorFunction,parameters,logTransfor
           hr            <- 0.0 # calculate the Hastings ratio
           parameters[j] <- new_val
           new_pp        <- likelihoodFunction(parameters)
-          new_prior     <- priorFunction(parameters)
+          new_prior     <- new_prior + priorFunction[[j]](parameters[j])
           # compute acceptance ratio for power posterior
           if ( b == 0.0 ) {
             acceptance_ratio <- new_prior-prior+hr
@@ -102,8 +104,9 @@ pathSampling <- function(likelihoodFunction,priorFunction,parameters,logTransfor
         samples[i-burnin] <- pp
       }
     }
-
+    
     tmp <- max(samples)
+    
 #    pathValues[k] <- log(mean(exp(samples-tmp)))+tmp
     pathValues[k] <- mean(samples)
     

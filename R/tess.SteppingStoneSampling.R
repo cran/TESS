@@ -104,10 +104,8 @@ tess.steppingStoneSampling <- function(likelihoodFunction,priors,parameters,logT
     }
 
     max <- samples[which.max(samples)]
-#    samples <- samples[-which.max(samples)]
     if ( k > 1 ) {
-      BF <- BF + log(mean( exp(samples-max)^(beta[k-1]-beta[k]) ))+(beta[k-1]-beta[k])*max
-#      BF <- BF + log(sum( exp(samples-max)^(beta[k-1]-beta[k]) ))-log(iterations)+(beta[k-1]-beta[k])*max
+      BF <- BF + log(mean( exp( (samples-max)*(beta[k-1]-beta[k]) ) ))+(beta[k-1]-beta[k])*max
     }
                               
   }

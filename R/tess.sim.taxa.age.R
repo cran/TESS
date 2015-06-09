@@ -42,19 +42,19 @@
 # @param    age                                           scalar        the age
 # @param    massExtinctionTimes                           vector        timse at which mass-extinctions happen
 # @param    massExtinctionSurvivalProbabilities           vector        survival probability of a mass extinction event
-# @param    samplingProbability                           scalar        probability of random sampling at present
+# @param    samplingProbability                           scalar        probability of uniform sampling at present
 # @param    approx                                        boolean       should linear function approximation be used
 # @return                                                 phylo         a random tree
 #
 ################################################################################
-sim.globalBiDe.taxa.age <- function(n,nTaxa,age,lambda,mu,massExtinctionTimes=c(),massExtinctionSurvivalProbabilities=c(),samplingProbability=1.0,samplingStrategy="random",MRCA=TRUE) {
+tess.sim.taxa.age <- function(n,nTaxa,age,lambda,mu,massExtinctionTimes=c(),massExtinctionSurvivalProbabilities=c(),samplingProbability=1.0,samplingStrategy="uniform",MRCA=TRUE) {
 
   if ( length(massExtinctionTimes) != length(massExtinctionSurvivalProbabilities) ) {
     stop("Number of mass-extinction times needs to equals the number of mass-extinction survival probabilities!")
   }
 
-  if ( samplingStrategy != "random" && samplingStrategy != "diversified" ) {
-    stop("Wrong choice of argument for \"samplingStrategy\". Possible option are random|diversified.")
+  if ( samplingStrategy != "uniform" && samplingStrategy != "diversified" ) {
+    stop("Wrong choice of argument for \"samplingStrategy\". Possible option are uniform|diversified.")
   }
 
   if ( (!is.numeric(lambda) && !inherits(lambda, "function")) || (!is.numeric(mu) && !inherits(mu, "function"))) {
@@ -64,7 +64,7 @@ sim.globalBiDe.taxa.age <- function(n,nTaxa,age,lambda,mu,massExtinctionTimes=c(
   # test if we got constant values for the speciation and extinction rates
   if ( is.numeric(lambda) && is.numeric(mu) ) {
     # call simulation for constant rates (much faster)
-    trees <- sim.globalBiDe.taxa.age.constant(n,nTaxa,age,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA)
+    trees <- tess.sim.taxa.age.constant(n,nTaxa,age,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA)
     return (trees)
   } else {
     
@@ -83,7 +83,7 @@ sim.globalBiDe.taxa.age <- function(n,nTaxa,age,lambda,mu,massExtinctionTimes=c(
 
     approxFuncs <- tess.prepare.pdf(speciation,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,age,c())
     
-    trees <- sim.globalBiDe.taxa.age.function(n,nTaxa,age,speciation,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA,approxFuncs$r,approxFuncs$s)
+    trees <- tess.sim.taxa.age.function(n,nTaxa,age,speciation,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA,approxFuncs$r,approxFuncs$s)
     
     return (trees)
   } 
@@ -97,7 +97,9 @@ sim.globalBiDe.taxa.age <- function(n,nTaxa,age,lambda,mu,massExtinctionTimes=c(
 #        the age of the tree.
 #
 #
-# Simulate the n speciation times using the inverse cdf given in Equation (9).
+# Simulate the n speciation times using the inverse cdf given in Equation (9)
+# in Hoehna, Fast simulation of reconstructed phylogenies under global,
+# time-dependent birth-death processes. 2013, Bioinformatics, 29:1367-1374 .
 #
 # @date Last modified: 2012-12-17
 # @author Sebastian Hoehna
@@ -112,7 +114,12 @@ sim.globalBiDe.taxa.age <- function(n,nTaxa,age,lambda,mu,massExtinctionTimes=c(
 # @return                                                 phylo         a random tree
 #
 ################################################################################
-sim.globalBiDe.taxa.age.constant <- function(n,nTaxa,age,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA) {
+tess.sim.taxa.age.constant <- function(n,nTaxa,age,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA) {
+
+  # check for sensible parameter values
+  if ( lambda <= 0 || mu < 0 || samplingProbability <= 0 || samplingProbability > 1.0) {
+    stop("Invalid parameter values for lambda and mu!")
+  }
 
   # if we have mass-extinction events, then we use the function-integration approach
   # because the closed form solutions only apply to models without mass-extinctions.
@@ -120,12 +127,12 @@ sim.globalBiDe.taxa.age.constant <- function(n,nTaxa,age,lambda,mu,massExtinctio
     speciation <- function(x) lambda
     extinction <- function(x) mu
     approxFuncs <- tess.prepare.pdf(speciation,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,age,c())    
-    trees <- sim.globalBiDe.taxa.age.function(n,nTaxa,age,speciation,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA,approxFuncs$r,approxFuncs$s)
+    trees <- tess.sim.taxa.age.function(n,nTaxa,age,speciation,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA,approxFuncs$r,approxFuncs$s)
     return (trees)
   } else {
 
-    # set the random taxon sampling probability
-    if (samplingStrategy == "random") {
+    # set the uniform taxon sampling probability
+    if (samplingStrategy == "uniform") {
       rho <- samplingProbability
     } else {
       rho <- 1.0
@@ -135,6 +142,7 @@ sim.globalBiDe.taxa.age.constant <- function(n,nTaxa,age,lambda,mu,massExtinctio
     if (samplingStrategy == "diversified") {
       m <- nTaxa
       nTaxa <- round(nTaxa / samplingProbability)
+      nTaxa <- pmin(nTaxa,10000)
     }
     
     div    <- lambda - mu
@@ -165,8 +173,10 @@ sim.globalBiDe.taxa.age.constant <- function(n,nTaxa,age,lambda,mu,massExtinctio
             times <- times[-(1:(nTaxa-m))]
           }
         }
-      } else {
-        times         <- age
+      }
+      
+      if ( length(times) < 1 ) {
+        times         <- c(rep(age/2,2-x),age)
       }
       
       tree          <- tess.create.phylo(times, root = !MRCA)
@@ -179,6 +189,43 @@ sim.globalBiDe.taxa.age.constant <- function(n,nTaxa,age,lambda,mu,massExtinctio
 }
 
 
+################################################################################
+# 
+# @brief Simulate a tree conditioned on the number of taxa and
+#        the age of the tree.
+#
+#
+# Simulate the n speciation times using the inverse cdf given in Equation (9)
+# in Hoehna, Fast simulation of reconstructed phylogenies under global,
+# time-dependent birth-death processes. 2013, Bioinformatics, 29:1367-1374 .
+#
+# @date Last modified: 2012-12-17
+# @author Sebastian Hoehna
+# @version 1.1
+# @since 2012-09-11, version 1.0
+#
+# @param    n                                             scalar        number of simulations
+# @param    nTaxa                                         scalar        number of taxa at present
+# @param    age                                           scalar        the age
+# @param    lambda                                        scalar        speciation rate function
+# @param    mu                                            scalar        extinction rate function
+# @return                                                 phylo         a random tree
+#
+################################################################################
+tess.sim.taxa.age.rateshift <- function(n,nTaxa,age,lambda,mu,rateChangeTimes,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA) {
+
+  # if we have mass-extinction events, then we use the function-integration approach
+  # because the closed form solutions only apply to models without mass-extinctions.
+ 
+  speciation <- function(x) lambda[findInterval(t,rateChangeTimes)]
+  extinction <- function(x) mu[findInterval(t,rateChangeTimes)]
+  approxFuncs <- tess.prepare.pdf(speciation,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,age,rateChangeTimes)    
+  trees <- tess.sim.taxa.age.function(n,nTaxa,age,speciation,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA,approxFuncs$r,approxFuncs$s)
+  return (trees)
+ 
+}
+
+
 
 
 ################################################################################
@@ -187,7 +234,9 @@ sim.globalBiDe.taxa.age.constant <- function(n,nTaxa,age,lambda,mu,massExtinctio
 #        the age of the tree. This is the fast approximation
 #        procedure using precomputed integral functions.
 #
-# Simulate the n speciation times using the inverse cdf given in Equation (9).
+# Simulate the n speciation times using the inverse cdf given in Equation (9)
+# in Hoehna, Fast simulation of reconstructed phylogenies under global,
+# time-dependent birth-death processes. 2013, Bioinformatics, 29:1367-1374 .
 #
 # @date Last modified: 2012-12-17
 # @author Sebastian Hoehna
@@ -201,15 +250,15 @@ sim.globalBiDe.taxa.age.constant <- function(n,nTaxa,age,lambda,mu,massExtinctio
 # @param    mu                                            function      extinction rate function
 # @param    massExtinctionTimes                           vector        timse at which mass-extinctions happen
 # @param    massExtinctionSurvivalProbabilities           vector        survival probability of a mass extinction event
-# @param    samplingProbability                           scalar        probability of random sampling at present
+# @param    samplingProbability                           scalar        probability of uniform sampling at present
 # @param    approx                                        boolean       should linear function approximation be used
 # @return                                                 phylo         a random tree
 #
 ################################################################################
-sim.globalBiDe.taxa.age.function <- function(n,nTaxa,age,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA,r,s) {
+tess.sim.taxa.age.function <- function(n,nTaxa,age,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA,r,s) {
   
-  # set the random taxon sampling probability
-  if (samplingStrategy == "random") {
+  # set the uniform taxon sampling probability
+  if (samplingStrategy == "uniform") {
     rho <- samplingProbability
   } else {
     rho <- 1.0
@@ -218,19 +267,12 @@ sim.globalBiDe.taxa.age.function <- function(n,nTaxa,age,lambda,mu,massExtinctio
 
   n2 <- 1001
   times <- seq(0, age, length=n2)
-  const_zz <- 1.0 - globalBiDe.equations.pSurvival.fastApprox(r,s,rho,0,age,age,log=FALSE) * exp(r(age) - log(rho))
-  zz <- 1.0 - ( (1.0 - globalBiDe.equations.pSurvival.fastApprox(r,s,rho,times,age,age,log=FALSE) * exp(r(age) - log(rho) - r(times))) / const_zz )
+  const_zz <- 1.0 - tess.equations.pSurvival.fastApprox(r,s,rho,0,age,age,log=FALSE) * exp(r(age) - log(rho))
+  zz <- 1.0 - ( (1.0 - tess.equations.pSurvival.fastApprox(r,s,rho,times,age,age,log=FALSE) * exp(r(age) - log(rho) - r(times))) / const_zz )
   zz[n2] <- 1.0
   icdf <- approxfun(zz, times) ## Interpolate
   speciationEventSim <- function(n)  icdf(runif(n))
   
-#  tess.pdf <- function(x) lambda(x) * globalBiDe.equations.p1.fastApprox(r, s, samplingProbability, x, age, log=FALSE)
-#  obj.pdf <- function(t, state, pars) list(tess.pdf(t))
-#  ## This step is slow for large n - perhaps 1/2s for 1000 points
-#  zz <- lsoda(0, times, obj.pdf, tcrit=age)[,2]
-#  const <- last(zz)
-#  zz <- zz / const ## Normalise
-
   # if we use diversified sampling then we just sample m instead of n speciation events
   if (samplingStrategy == "diversified") {
     m <- nTaxa
@@ -257,8 +299,10 @@ sim.globalBiDe.taxa.age.function <- function(n,nTaxa,age,lambda,mu,massExtinctio
           times <- times[-(1:(nTaxa-m))]
         }
       }
-    } else {
-      times         <- age
+    }
+    
+    if ( length(times) < 1 ) {
+        times         <- c(rep(age/2,2-x),age)
     }
 
     # create the tree

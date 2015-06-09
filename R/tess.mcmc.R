@@ -2,7 +2,7 @@ require(coda)
 
 
 ################################################################################
-# 
+#
 # @brief General Markov chain Monte Carlo algorithm using Metropolis-Hastings.
 #
 # @date Last modified: 2012-12-17
@@ -12,27 +12,23 @@ require(coda)
 #
 # @param    likelihoodFunction     function      the log-likelihood function
 # @param    priors                 list          a list of functions of the log-prior density per parameter
-# @param    parameters             vector        initial set of paramete values
+# @param    parameters             vector        initial set of parameter values
 # @param    logTransform           vector        should be a log-transform be used for parameter proposals
 # @param    iterations             scalar        the number of iterations
 # @param    burnin                 scalar        number of burnin iterations
-# @param    thining                scalar        number of iterations between samples
+# @param    thinning               scalar        number of iterations between samples
 # @param    adaptive               boolean       should we use adaptive MCMC?
 # @param    verbose                boolean       should we print information during the MCMC?
 # @return                          list          samples from the posterior
 #
 ################################################################################
 
+tess.mcmc <- function(likelihoodFunction,priors,parameters,logTransforms,delta,iterations,burnin=round(iterations/3),thinning=1,adaptive=TRUE,verbose=FALSE) {
 
-tess.mcmc <- function(likelihoodFunction,priors,parameters,logTransforms,delta,iterations,burnin=round(iterations/3),thining=1,adaptive=TRUE,verbose=FALSE) {
-
-  OPTIMIZATIONS <- min(ceiling(burnin/20),10)
-  PRINT_FREQ_B <- min(burnin,20)
-  PRINT_FREQ_C <- min(iterations,20)
+  OPTIMIZATIONS <- max(ceiling(burnin/20),50)
 
   # create a list for the samples
-  chain = array(dim = c(floor(iterations/thining)+1,length(parameters))) #reserve memory for the chain, for large chains we might consider writing to a file instead of storing in memory
-   
+  chain = array(dim = c(floor(iterations/thinning)+1,length(parameters))) #reserve memory for the chain, for large chains we might consider writing to a file instead of storing in memory
 
   # pre-compute current posterior probability
   pp <- likelihoodFunction(parameters)
@@ -40,10 +36,10 @@ tess.mcmc <- function(likelihoodFunction,priors,parameters,logTransforms,delta,i
     pp <- pp + priors[[j]](parameters[j])
   }
 
-  if ( verbose == TRUE ) {
+  if ( verbose ) {
     cat("Burning-in the chain ...\n")
     cat("0--------25--------50--------75--------100\n")
-    cat("*")
+    bar <- txtProgressBar(style=1,width=42)
   }
 
   # this is the tuning parameter
@@ -51,29 +47,30 @@ tess.mcmc <- function(likelihoodFunction,priors,parameters,logTransforms,delta,i
   accepted <- rep(0,length(parameters))
   tried <- rep(0,length(parameters))
   
+  # We need an initial sample if the burnin == 0
+  if (burnin == 0) {
+     chain[1,] <- parameters    
+  }
+
   for (i in 1:(burnin+iterations)) {
 
     if ( verbose == TRUE ) {
       if ( i <= burnin ) {
-        if ( i %% (burnin/PRINT_FREQ_B) == 0 ) {
-          cat("**")
-        }
+        setTxtProgressBar(bar,i/burnin)
       } else if (i == (burnin+1) ) {
         cat("\nFinished burnin period!\n\n")
         cat("Running the chain ...\n")
         cat("0--------25--------50--------75--------100\n")
-        cat("*")
+        bar <- txtProgressBar(style=1,width=42)
       } else {
-        if ( (i-burnin) %% (iterations/PRINT_FREQ_C) == 0 ) {
-          cat("**")
-        }
+        setTxtProgressBar(bar,(i-burnin)/iterations)
       }
     }
 
     # if we use adaptive MCMC we might have to modify our parameters
     if ( adaptive == TRUE ) {
       if ( i <= burnin ) {
-        if ( i %% (burnin/OPTIMIZATIONS) == 0 ) {
+        if ( i %% OPTIMIZATIONS == 0 ) {
           for ( j in 1:length(parameters) ) {
             rate <- accepted[j] / tried[j]
             if ( rate > 0.44 ) {
@@ -87,13 +84,12 @@ tess.mcmc <- function(likelihoodFunction,priors,parameters,logTransforms,delta,i
         }
       }
     }
-          
 
     # propose new values
     for ( j in 1:length(parameters) ) {
       # increase our tried counter
       tried[j] <- tried[j] + 1
-      
+
       if ( logTransforms[j] == TRUE ) {
         if (parameters[j] == 0) {
           stop("Cannot propose new value for a parameter with value 0.0.")
@@ -136,28 +132,42 @@ tess.mcmc <- function(likelihoodFunction,priors,parameters,logTransforms,delta,i
         } else {
           parameters[j] <- eta
         }
+
       }
 
     }
 
     # sample the parameter
     if (i >= burnin) {
-      if ( (i-burnin) %% thining == 0 ) {
-        chain[(i-burnin)/thining+1,] <- parameters
+      if ( (i-burnin) %% thinning == 0 ) {
+        chain[(i-burnin)/thinning+1,] <- parameters
       }
     }
-    
+
   }
 
-  if ( verbose == TRUE ) {
+  if ( is.null(names(priors)) ) {
+    names(priors) <- 1:length(priors)
+  }
+
+  chain <- as.mcmc(chain)
+  varnames(chain) <- names(priors)
+
+  if ( verbose ) {
     cat("\nFinished MCMC!\n\n")
-    cat("Parameter\t| delta\t\t| Acceptance Probability\n")
-    cat("===============================================================\n")
+    cat("Parameter | delta | Acceptance Probability\n")
+    cat("==========================================\n")
     for ( j in 1:length(parameters) ) {
-      cat(sprintf("%i\t\t| %.3f\t\t| %.3f\n",j,delta[j],accepted[j]/tried[j]))
+      cat(sprintf("%s\t\t| %.3f\t\t| %.3f\n",names(priors)[j],delta[j],accepted[j]/tried[j]))
     }
   }
-    
 
-  return(as.mcmc(chain)) #return a mcmc object, used by coda to plot
+  return(chain) #return a mcmc object, used by coda to plot
+
 }
+
+
+
+
+
+

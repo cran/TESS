@@ -1,6 +1,6 @@
-
-export(globalBiDe.likelihood,globalBiDe.nTaxa.expected,sim.globalBiDe.age, sim.globalBiDe.taxa.age, sim.globalBiDe.taxa, tess.mcmc, tess.PosteriorPrediction, tess.PosteriorPredictiveTest, tess.steppingStoneSampling)
+export(tess.likelihood, tess.likelihood.rateshift, tess.analysis, tess.nTaxa.expected, tess.mcmc, tess.pathSampling, tess.process.output, tess.plot.output, tess.plot.singlechain.diagnostics, tess.plot.multichain.diagnostics, tess.PosteriorPrediction, tess.PosteriorPredictiveTest, tess.sim.age, tess.sim.taxa.age, tess.sim.taxa,tess.steppingStoneSampling)
 
 import(ape,coda,deSolve)
 
-
+useDynLib(TESS)
+importFrom(Rcpp, evalCpp)

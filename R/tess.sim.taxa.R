@@ -1,6 +1,6 @@
 ################################################################################
 #
-# sim.globalBiDe.age.R
+# tess.sim.age.R
 #
 # Copyright (c) 2012- Sebastian Hoehna
 #
@@ -41,20 +41,20 @@
 # @param    mu                                            function      extinction rate function
 # @param    massExtinctionTimes                           vector        timse at which mass-extinctions happen
 # @param    massExtinctionSurvivalProbabilities           vector        survival probability of a mass extinction event
-# @param    samplingProbability                           scalar        probability of random sampling at present
+# @param    samplingProbability                           scalar        probability of uniform sampling at present
 # @param    MRCA                                          boolean       do we start the tree with the MRCA (two species)?
 # @param    t_crit                                        vector        critical times when jumps in the rate functions occur
 # @return                                                 list          list of random trees (type phylo)
 #
 ################################################################################
-sim.globalBiDe.taxa <- function(n,nTaxa,max,lambda,mu,massExtinctionTimes=c(),massExtinctionSurvivalProbabilities=c(),samplingProbability=1.0,samplingStrategy="random",SURVIVAL=TRUE,MRCA=TRUE,t_crit=c()) {
+tess.sim.taxa <- function(n,nTaxa,max,lambda,mu,massExtinctionTimes=c(),massExtinctionSurvivalProbabilities=c(),samplingProbability=1.0,samplingStrategy="uniform",SURVIVAL=TRUE,MRCA=TRUE,t_crit=c()) {
 
   if ( length(massExtinctionTimes) != length(massExtinctionSurvivalProbabilities) ) {
     stop("Number of mass-extinction times needs to equals the number of mass-extinction survival probabilities!")
   }
 
-  if ( samplingStrategy != "random" && samplingStrategy != "diversified" ) {
-    stop("Wrong choice of argument for \"samplingStrategy\". Possible option are random|diversified.")
+  if ( samplingStrategy != "uniform" && samplingStrategy != "diversified" ) {
+    stop("Wrong choice of argument for \"samplingStrategy\". Possible option are uniform|diversified.")
   }
 
   if ( (!is.numeric(lambda) && !inherits(lambda, "function")) || (!is.numeric(mu) && !inherits(mu, "function"))) {
@@ -64,7 +64,7 @@ sim.globalBiDe.taxa <- function(n,nTaxa,max,lambda,mu,massExtinctionTimes=c(),ma
   # test if we got constant values for the speciation and extinction rates
   if ( is.numeric(lambda) && is.numeric(mu) ) {
     # call simulation for constant rates (much faster)
-    trees <- sim.globalBiDe.taxa.constant(n,nTaxa,max,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,SURVIVAL,MRCA)
+    trees <- tess.sim.taxa.constant(n,nTaxa,max,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,SURVIVAL,MRCA)
     return (trees)
   } else  {
     
@@ -81,7 +81,7 @@ sim.globalBiDe.taxa <- function(n,nTaxa,max,lambda,mu,massExtinctionTimes=c(),ma
       extinction <- mu
     }
     
-    trees <- sim.globalBiDe.taxa.function(n,nTaxa,max,speciation,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,SURVIVAL,MRCA,t_crit)
+    trees <- tess.sim.taxa.function(n,nTaxa,max,speciation,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,SURVIVAL,MRCA,t_crit)
     return (trees)
   }
 
@@ -93,8 +93,10 @@ sim.globalBiDe.taxa <- function(n,nTaxa,max,lambda,mu,massExtinctionTimes=c(),ma
 # 
 # @brief Simulate a tree for a given number of taxa.
 #
-# 1) Simulate the time of the process using Monte Carlo sampling, see Equation (11).
-# 2) Simulate the tree by calling sim.globalBiDe.taxa.age.constant
+# 1) Simulate the time of the process using Monte Carlo sampling, see Equation (11)
+# in Hoehna, Fast simulation of reconstructed phylogenies under global,
+# time-dependent birth-death processes. 2013, Bioinformatics, 29:1367-1374 .
+# 2) Simulate the tree by calling tess.sim.taxa.age.constant
 # Note: The sampling strategy does not affect the probability of the age of the tree
 #
 # @date Last modified: 2013-01-30
@@ -107,15 +109,20 @@ sim.globalBiDe.taxa <- function(n,nTaxa,max,lambda,mu,massExtinctionTimes=c(),ma
 # @param    max                                           scalar        the maximal time for the age
 # @param    lambda                                        scalar        speciation rate function
 # @param    mu                                            scalar        extinction rate function
-# @param    samplingProbability                           scalar        probability of random sampling at present
+# @param    samplingProbability                           scalar        probability of uniform sampling at present
 # @return                                                 list          list of random trees (type phylo)
 #
 ################################################################################
-sim.globalBiDe.taxa.constant <- function(n,nTaxa,max,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,SURVIVAL,MRCA) {
+tess.sim.taxa.constant <- function(n,nTaxa,max,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,SURVIVAL,MRCA) {
+
+  # check for sensible parameter values
+  if ( lambda <= 0 || mu < 0 || samplingProbability <= 0 || samplingProbability > 1.0) {
+    stop("Invalid parameter values for lambda and mu!")
+  }
 
   if ( length(massExtinctionTimes) > 0 ) {
     # compute the cumulative distribution function for the time of the process
-    pdf <- function(x) globalBiDe.equations.pN.constant(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,nTaxa,0,x,SURVIVAL,MRCA,log=FALSE)
+    pdf <- function(x) tess.equations.pN.constant(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,nTaxa,0,x,SURVIVAL,MRCA,log=FALSE)
 
     # use the inverse-cdf to sample
     repeat { # find a better interval
@@ -151,7 +158,7 @@ sim.globalBiDe.taxa.constant <- function(n,nTaxa,max,lambda,mu,massExtinctionTim
   for ( i in 1:n ) {
 
     # delegate the call to the simulation condition on both, age and nTaxa
-    tree <- sim.globalBiDe.taxa.age.constant(1,nTaxa,T[i],lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA)
+    tree <- tess.sim.taxa.age.constant(1,nTaxa,T[i],lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA)
   
     # add the new tree to the list
     trees[[i]] <- tree[[1]]
@@ -166,7 +173,9 @@ sim.globalBiDe.taxa.constant <- function(n,nTaxa,max,lambda,mu,massExtinctionTim
 # 
 # @brief Simulate a tree for a given number of taxa.
 #
-# 1) Simulate the time of the process using Monte Carlo sampling, see Equation (11).
+# 1) Simulate the time of the process using Monte Carlo sampling, see Equation (11)
+# in Hoehna, Fast simulation of reconstructed phylogenies under global,
+# time-dependent birth-death processes. 2013, Bioinformatics, 29:1367-1374 .
 # 2) Simulate the tree by calling sim.globalBiDe.taxa.age.function
 # Note: The sampling strategy does not affect the probability of the age of the tree
 #
@@ -181,13 +190,13 @@ sim.globalBiDe.taxa.constant <- function(n,nTaxa,max,lambda,mu,massExtinctionTim
 # @return                 phylo         a random tree
 #
 ################################################################################
-sim.globalBiDe.taxa.function <- function(n,nTaxa,max,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,SURVIVAL,MRCA,t_crit=c()) {
+tess.sim.taxa.function <- function(n,nTaxa,max,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,SURVIVAL,MRCA,t_crit=c()) {
 
   # approximate the rate integral and the survival probability integral for fast computations
   approxFuncs <- tess.prepare.pdf(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,max,t_crit)
 
   # compute the cumulative distribution function for the time of the process
-  pdf <- function(x) globalBiDe.equations.pN.fastApprox(approxFuncs$r,approxFuncs$s,samplingProbability,nTaxa,0,x,SURVIVAL,MRCA,log=FALSE)
+  pdf <- function(x) tess.equations.pN.fastApprox(approxFuncs$r,approxFuncs$s,samplingProbability,nTaxa,0,x,SURVIVAL,MRCA,log=FALSE)
 
   repeat { # find a better interval
     
@@ -218,7 +227,7 @@ sim.globalBiDe.taxa.function <- function(n,nTaxa,max,lambda,mu,massExtinctionTim
   for ( i in 1:n ) {
 
     # delegate the call to the simulation condition on both, age and nTaxa
-    tree <- sim.globalBiDe.taxa.age.function(1,nTaxa,age=T[i],lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA,approxFuncs$r,approxFuncs$s)
+    tree <- tess.sim.taxa.age.function(1,nTaxa,age=T[i],lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,MRCA,approxFuncs$r,approxFuncs$s)
 
     # add the new tree to the list
     trees[[i]] <- tree[[1]]

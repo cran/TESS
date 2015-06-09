@@ -28,6 +28,7 @@
 
 
 tess.create.phylo <- function(times,root=FALSE,tip.label=NULL) {
+  
   n <- as.integer(length(times))+1
   if ( root ) {
     n <- n-1
@@ -101,12 +102,16 @@ tess.prepare.pdf <- function(lambda, mu, massExtinctionTimes,
 
   
   if ( length(massExtinctionTimes) == 0 ) {
-    t.crit <- sort(unique(c(0, t.crit.f,age)))
+    t.crit <- unique( sort(c(0, t.crit.f,age)) )
+    uni <- (t.crit[ 2:length(t.crit) ] - t.crit[ 1:(length(t.crit)-1) ]) > 1E-6
+    t.crit <- t.crit[c(TRUE,uni)]
     t.crit <- t.crit[t.crit <= age]
     t.crit.i <- c()
     t.crit.p <- c(rep(NA,length(t.crit)-1),1.0)
   } else {
-    t.crit <- sort(unique(c(0, t.crit.f, massExtinctionTimes)))
+    t.crit <- unique( sort(c(0, t.crit.f, massExtinctionTimes)) )
+    uni <- (t.crit[ 2:length(t.crit) ] - t.crit[ 1:(length(t.crit)-1) ]) > 1E-6
+    t.crit <- t.crit[c(TRUE,uni)]
     t.crit <- t.crit[t.crit < age]
     t.crit.i <- match(t.crit, massExtinctionTimes)
     t.crit.p <- massExtinctionSurvivalProbabilities[t.crit.i]
@@ -123,6 +128,9 @@ tess.prepare.pdf <- function(lambda, mu, massExtinctionTimes,
 ## Utility functions.
 first <- function(x) x[[1]]
 last <- function(x) x[[length(x)]]
+
+
+
 
 
 ## This carries out integration for the time-varying
@@ -165,7 +173,7 @@ tess.ode.piecewise <- function(lambda, mu, times, t.crit, t.crit.p) {
   rate <- approxfun(xx,r_points)
 
   # compute the integral int_{x}^{T} mu(t)*exp(r(t)) dt
-  f <- function(t) mu(t)*exp(rate(t))
+  f <- function(t) pmin(mu(t)*exp(rate(t)),1E100)
   probs <- array(0,length(xx))
   for (i in length(xx):2) {
     u <- xx[i]
@@ -209,4 +217,3 @@ rejection.sample.simple <- function(n, f, r, sup) {
   }
   ok[seq_len(n)]
 }
-

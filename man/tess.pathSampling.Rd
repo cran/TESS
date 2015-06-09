@@ -1,16 +1,16 @@
-\name{tess.steppingStoneSampling}
-\alias{tess.steppingStoneSampling}
+\name{tess.pathSampling}
+\alias{tess.pathSampling}
 %- Also NEED an '\alias' for EACH other topic documented here.
-\title{tess.steppingStoneSampling: Marginal likelihood estimation via Stepping-Stone-Sampling.}
-\description{tess.steppingStoneSampling uses a power posterior series and stepping-stone-sampling to estimate the marginal likelihood of a model. }
+\title{tess.pathSampling: Marginal likelihood estimation via Path-Sampling.}
+\description{tess.pathSampling uses a power posterior series and path-sampling to estimate the marginal likelihood of a model. }
 \usage{
-tess.steppingStoneSampling(likelihoodFunction,priors,parameters,logTransforms,
+tess.pathSampling(likelihoodFunction,priorFunction,parameters,logTransforms,
                            iterations,burnin=round(iterations/3),K=50)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{likelihoodFunction}{The log-likelihood function which will be called internally by likelihoodFunction(parameters).}
-  \item{priors}{A list of functions of the log-prior-densities of each parameter.}
+  \item{priorFunction}{A list of functions of the log-prior-densities of each parameter.}
   \item{parameters}{The initial parameter value list.}
   \item{logTransforms}{A vector of booleans telling if log-transform for the parameters should be used (e.g. for rates).}
   \item{iterations}{The number of iterations for the MCMC.}
@@ -18,7 +18,7 @@ tess.steppingStoneSampling(likelihoodFunction,priors,parameters,logTransforms,
   \item{K}{The number of stepping stones.}
 }
 \value{Returns the posterior samples for the parameters.}
-\references{Xie et al., 2011: Improving marginal likelihood estimation for Bayesian phylogenetic model selection
+\references{Lartillot, N. and Philippe, H., 2006: Computing Bayes factors using thermodynamic integration. Systematic Biology, 55, 195
 Baele et al., 2012: Improving the accuracy of demographic and molecular clock model comparison while accommodating phylogenetic uncertainty
 Baele et al., 2013: Accurate Model Selection of Relaxed Molecular Clocks in Bayesian Phylogenetics }
 \author{Sebastian Hoehna}
@@ -47,7 +47,7 @@ priors <- c(prior_diversification,prior_turnover)
 # Note, the number of iterations, the burnin
 # and the number of stepping stones is too small here
 # and should be adapted for real analyses
-marginalLikelihood <- tess.steppingStoneSampling( likelihood,
+marginalLikelihood <- tess.pathSampling( likelihood,
 						  priors,
 						  runif(2,0,1),
 						  c(TRUE,TRUE),

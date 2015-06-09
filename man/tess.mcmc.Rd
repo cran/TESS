@@ -1,11 +1,11 @@
 \name{tess.mcmc}
 \alias{tess.mcmc}
 %- Also NEED an '\alias' for EACH other topic documented here.
-\title{tess.mcmc: Metropolis-Hastings algorithm.}
-\description{tess.mcmc constructs a Markov chain Monte Carlo algorithm (MCMC) by implementing a general Metropolis-Hastings algorithm. Any model can be used where the likelihood is known and thus can be passed in as an argument. The parameters have to be continuous. Proposals are taken from a normal distribution centered around the current value. The varaince of the new proposed values is initalized with 1 but can be automatically optimized when using the option adaptive = TRUE. The algorithm creates sampels from the posterior probility distribution and returns these a CODA mcmc object.}
+\title{tess.mcmc: Markov chain Monte Carlo simulation using a general Metropolis-Hastings algorithm.}
+\description{tess.mcmc constructs a Markov chain Monte Carlo sampler (MCMC) by implementing a general Metropolis-Hastings algorithm. Any model can be used where the likelihood is known and thus can be passed in as an argument. The parameters have to be continuous. Proposals are taken from a normal distribution centered around the current value. The varaince of the new proposed values is initalized with 1 but can be automatically optimized when using the option adaptive = TRUE. The algorithm creates sampels from the posterior probility distribution and returns these a CODA mcmc object.}
 \usage{
 tess.mcmc(likelihoodFunction,priors,parameters,logTransforms,delta,
-             iterations,burnin=round(iterations/3),thining=1,
+             iterations,burnin=round(iterations/3),thinning=1,
              adaptive=TRUE,verbose=FALSE)
 }
 %- maybe also 'usage' for other objects documented here.
@@ -17,12 +17,12 @@ tess.mcmc(likelihoodFunction,priors,parameters,logTransforms,delta,
   \item{delta}{The variance of new proposed values.}
   \item{iterations}{The number of iterations for the MCMC.}
   \item{burnin}{The number of iterations to burn before starting the MCMC.}
-  \item{thining}{The frequency of taking a sample of the parameters.}
+  \item{thinning}{The frequency of taking a sample of the parameters.}
   \item{adaptive}{Should we use adaptive MCMC?}
   \item{verbose}{Do you want detailed information during the run?}
 }
 \value{Returns the posterior samples for the parameters.}
-\references{Hoehna, S.: Fast simulation of reconstructed phylogenies under global, time-dependent birth-death processes. 2012, submitted }
+\references{S. Hoehna: Fast simulation of reconstructed phylogenies under global, time-dependent birth-death processes. 2013, Bioinformatics, 29:1367-1374 }
 \author{Sebastian Hoehna}
 
 %% ~Make other sections like Warning with \section{Warning }{....} ~
@@ -30,23 +30,32 @@ tess.mcmc(likelihoodFunction,priors,parameters,logTransforms,delta,
 \examples{
 
 data(cettiidae)
+times <- as.numeric( branching.times(cettiidae) )
 
 likelihood <- function(params) {
   # We use the parameters as diversification rate and turnover rate.
   # Thus we need to transform first
-  b <- params[1] + params[2]
+  b <- params[1] #+ params[2]
   d <- params[2]
   
-  lnl <- globalBiDe.likelihood(cettiidae,b,d,samplingProbability=1.0,log=TRUE)
+  lnl <- tess.likelihood(times,b,d,samplingProbability=1.0,log=TRUE)
   return (lnl)
 }
 
-prior_diversification <- function(x) { dexp(x,rate=0.1,log=TRUE) }
-prior_turnover <- function(x) { dexp(x,rate=0.1,log=TRUE) }
-priors <- c(prior_diversification,prior_turnover)
+prior.diversification <- function(x) { dexp(x,rate=0.1,log=TRUE) }
+prior.turnover <- function(x) { dexp(x,rate=0.1,log=TRUE) }
+priors <- c(prior.diversification,prior.turnover)
 
-# Note, the number of iterations and the burnin is too small here and should be adapted for real analyses
-samples <- tess.mcmc(likelihood,priors,runif(2,0,1),logTransforms=c(TRUE,TRUE),delta=c(0.1,0.1),iterations=100,burnin=20)
+# Note, the number of iterations and the burnin is too small here
+# and should be adapted for real analyses
+samples <- tess.mcmc( likelihood,
+		      priors,
+		      runif(2,0,1),
+		      logTransforms=c(TRUE,TRUE),
+		      delta=c(0.1,0.1),
+		      iterations=100,
+		      burnin=20)
+
 #plot(samples)
 summary(samples)
 colMeans(samples)

@@ -7,29 +7,31 @@ require(coda)
 #        predictive testing can be achieved by providing samples from the prior
 #        instead.
 #
-# @date Last modified: 2012-12-17
+# @date Last modified: 2015-05-28
 # @author Sebastian Hoehna
 # @version 1.0
 # @since 2012-11-19, version 1.0
 #
 # @param    simulationFunction     function      the simulation function
 # @param    parameters             matrix        set of parameter samples
-# @return                          scalar        the upper quantile of observing such a value
+# @param    burnin                 scalar        the fraction of samples to burn
+# @return                          list          the simlated trees
 #
 ################################################################################
 
 
-tess.PosteriorPrediction <- function(simulationFunction,parameters) {
+tess.PosteriorPrediction <- function(simulationFunction,parameters,burnin=0.25) {
 
 
   samples <- list()
-  for ( i in 1:length(parameters[,1])) {
+  b <- length(parameters[,1]) * burnin
+  for ( i in b:length(parameters[,1])) {
 
     # get the current set of parameter values
     theta <- parameters[i,]
 
     # simulate a new observation under the current parameter values
-    samples[[i]] <- simulationFunction(theta)
+    samples[[i-b+1]] <- simulationFunction(theta)
 
   }
 

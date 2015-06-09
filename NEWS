@@ -1,3 +1,65 @@
+		CHANGES IN TESS VERSION 1.3.0 
+
+
+NEW FEATURES
+
+    o Added the skyline birth-death model for piecewise constant rates
+
+    o Added the skyline birth-death model for piecewise linear rates
+
+    o Added a family level sampling birth-death model
+
+    o Added a reversible jump MCMC to estimate number of rate changes
+
+    o Added a reversible jump MCMC to estimate the number of mass-extinction events.
+
+    o ...
+
+
+BUG FIXES
+
+    o ...
+
+    o ...
+
+
+		CHANGES IN TESS VERSION 1.2.2 (not released)
+
+
+NEW FEATURES
+
+    o Added a cut-off value for the maximum number of taxa simulated under simulations condition on the age of the tree.
+
+
+BUG FIXES
+
+    o Corrected the likelihoods for diversified sampling.
+
+
+
+		CHANGES IN TESS VERSION 1.2.1
+
+
+BUG FIXES
+
+    o Corrected the likelihoods for mass-extinctions.
+
+    o Improved the likelihoods for large trees.
+
+
+
+		CHANGES IN TESS VERSION 1.2.0
+
+
+NEW FEATURES
+
+    o Included diversified sampling.
+
+    o Included age dependent sampling.
+
+
+
+
 		CHANGES IN TESS VERSION 1.1.0
 
 
@@ -9,15 +71,6 @@ NEW FEATURES
 
     o A posterior predictive simulation function.
 
-
-BUG FIXES
-
-    o ...
-
-
-OTHER CHANGES
-
-    o ...
 
 
 

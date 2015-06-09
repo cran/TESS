@@ -13,7 +13,7 @@ data(cettiidae)
   \code{\link{read.tree}} of the package \code{\link{ape}}.
 }
 \source{
-   Astroem, P., Hoehna, S., Gelang, M., Ericson, P.G.P, and Olsson, U. (2011) Non-monophyly and intricate morphological evolution within the avian family Cettiidae revealed by multilocus analysis of a taxonomically densely sampled dataset, BMC Evolutionary Biology, 11:352.
+   Alstroem, P., Hoehna, S., Gelang, M., Ericson, P.G.P, and Olsson, U. (2011) Non-monophyly and intricate morphological evolution within the avian family Cettiidae revealed by multilocus analysis of a taxonomically densely sampled dataset, BMC Evolutionary Biology, 11:352.
 }
 
 \examples{

@@ -1,6 +1,6 @@
 ################################################################################
 #
-# globalBiDe.nTaxa.expected.R
+# tess.nTaxa.expected.R
 #
 # Copyright (c) 2012- Sebastian Hoehna
 #
@@ -40,14 +40,15 @@
 # @param    mu                                            function      extinction rate function
 # @param    massExtinctionTimes                           vector        timse at which mass-extinctions happen
 # @param    massExtinctionSurvivalProbabilities           vector        survival probability of a mass extinction event
-# @param    samplingProbability                           scalar        probability of random sampling at present
+# @param    samplingProbability                           scalar        probability of uniform sampling at present
 # @param    MRCA                                          boolean       does the tree start at the mrca?
+# @param    reconstructed                                 boolean       are we computing the expected number of lineage at time t in the reconstructed process?
 
 # @return                                                 scalar        probability of the speciation times
 #
 ################################################################################
 
-globalBiDe.nTaxa.expected <- function(t_low,t_high,lambda,mu,massExtinctionTimes=c(),massExtinctionSurvivalProbabilities=c(),samplingProbability=1.0,MRCA=TRUE) {
+tess.nTaxa.expected <- function(begin,t,end,lambda,mu,massExtinctionTimes=c(),massExtinctionSurvivalProbabilities=c(),samplingProbability=1.0,MRCA=TRUE,reconstructed=FALSE) {
 
   if ( length(massExtinctionTimes) != length(massExtinctionSurvivalProbabilities) ) {
     stop("Number of mass-extinction times needs to equals the number of mass-extinction survival probabilities!")
@@ -60,7 +61,11 @@ globalBiDe.nTaxa.expected <- function(t_low,t_high,lambda,mu,massExtinctionTimes
   # test if we got constant values for the speciation and extinction rates
   if ( class(lambda) == "numeric" && class(mu) == "numeric" ) {
     # call computations for constant rates (much faster)
-    p <- globalBiDe.equations.nTaxa.expected.constant(t_low,t_high,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA)
+    if ( reconstructed == FALSE ) {
+      p <- tess.equations.nTaxa.expected.constant(begin,end,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA)
+    } else {
+      p <- tess.equations.nTaxa.expected.reconstructed.constant(begin,t,end,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA)
+    }
     return (p)
   } else {
     
@@ -77,9 +82,13 @@ globalBiDe.nTaxa.expected <- function(t_low,t_high,lambda,mu,massExtinctionTimes
       extinction <- mu
     }
     
-    approxFuncs <- tess.prepare.pdf(speciation,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,t_high,c())
-    
-    n <- globalBiDe.equations.nTaxa.expected.fastApprox(t_low,t_high,approxFuncs$r,approxFuncs$s,samplingProbability,MRCA)
+    approxFuncs <- tess.prepare.pdf(speciation,extinction,massExtinctionTimes,massExtinctionSurvivalProbabilities,max(end),c())
+
+    if ( reconstructed == FALSE ) {
+      n <- tess.equations.nTaxa.expected.fastApprox(begin,end,approxFuncs$r,approxFuncs$s,samplingProbability,MRCA)
+    } else {
+      n <- tess.equations.nTaxa.expected.reconstructed.fastApprox(begin,t,end,approxFuncs$r,approxFuncs$s,samplingProbability,MRCA)
+    }
     return (n)
   }
 

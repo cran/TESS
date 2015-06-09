@@ -13,16 +13,18 @@ tess.PosteriorPredictiveTest(samples,observation,statistic)
   \item{statistic}{The function that computes the statistic.}
 }
 \value{Returns a list of the statistic for each sample.}
-\references{Hoehna, S.: Fast simulation of reconstructed phylogenies under global, time-dependent birth-death processes. 2012, submitted }
+\references{S. Hoehna: Fast simulation of reconstructed phylogenies under global, time-dependent birth-death processes. 2013, Bioinformatics, 29:1367-1374 }
 \author{Sebastian Hoehna}
 
 %% ~Make other sections like Warning with \section{Warning }{....} ~
 
 \examples{
-# We first run an MCMC to obtain samples from the posterior distribution and then simulate the posterior predictive distribution.
+# We first run an MCMC to obtain samples from the posterior distribution
+# and then simulate the posterior predictive distribution.
 
 # The bird phylogeny as the test data set
 data(cettiidae)
+times <- as.numeric( branching.times(cettiidae) )
 
 # The log-likelihood function
 likelihood <- function(params) {
@@ -31,7 +33,7 @@ likelihood <- function(params) {
   b <- params[1] + params[2]
   d <- params[2]
   
-  lnl <- globalBiDe.likelihood(cettiidae,b,d,samplingProbability=1.0,log=TRUE)
+  lnl <- tess.likelihood(times,b,d,samplingProbability=1.0,log=TRUE)
   return (lnl)
 }
 
@@ -39,7 +41,8 @@ prior_diversification <- function(x) { dexp(x,rate=0.1,log=TRUE) }
 prior_turnover <- function(x) { dexp(x,rate=0.1,log=TRUE) }
 priors <- c(prior_diversification,prior_turnover)
 
-# Note, the number of iterations and the burnin is too small here and should be adapted for real analyses
+# Note, the number of iterations and the burnin is too small here
+# and should be adapted for real analyses
 samples <- tess.mcmc(likelihood,priors,c(1,0.1),c(TRUE,TRUE),c(0.1,0.1),10,10)
 
 tmrca <- max(branching.times(cettiidae))
@@ -52,7 +55,7 @@ sim <- function(params) {
   
   # We need trees with at least three tips for the gamma-statistics
   repeat {
-    tree <- sim.globalBiDe.age(n=1,age=tmrca,b,d,samplingProbability=1.0,MRCA=TRUE)[[1]]
+    tree <- tess.sim.age(n=1,age=tmrca,b,d,samplingProbability=1.0,MRCA=TRUE)[[1]]
     if (tree$Nnode > 1) break
   }
   return (tree)
