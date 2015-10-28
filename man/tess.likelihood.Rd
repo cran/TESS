@@ -3,7 +3,7 @@
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{tess.likelihood: Probability density of a tree under a tree-wide time-dependent birth-death process}
 \description{tess.likelihood computes the probability of a reconstructed phylogenetic tree under time-dependent diversification rates. The rates may be any positive function of time or a constant. Additionally, mass-extinction event can be provided and a uniform taxon sampling probability. You have several options for the start of the process (origin vs MRCA) and the condition of the process (time, survival or taxa; note that survival and taxa implicitly condition on the time too!). See equation (5) in Hoehna (2013) for more information. Note that constant rates lead to much faster computations.
-The likelihood can be computed for incompletely sampled trees if you give a sampling probability != 1.0. You have two options for the sampling strategy: uniform|diversified. The detailed description of these can be found in the references. }
+The likelihood can be computed for incompletely sampled trees if you give a sampling probability != 1.0. You have two options for the sampling strategy: uniform|diversified. The detailed description of these can be found in the references. More information can be obtained in the vignette about how to apply this likelihood function.}
 \usage{
 tess.likelihood(times,
                 lambda,
@@ -34,26 +34,43 @@ tess.likelihood(times,
   \item{log}{Should we log-transform the likelihood?}
 }
 \value{Returns the (log) probability of the tree, i.e. the likelihood of the parameters given the tree.}
-\references{S. Hoehna: Fast simulation of reconstructed phylogenies under global, time-dependent birth-death processes. 2013, Bioinformatics, 29:1367-1374
-Hoehna, S. Likelihood Inference of Non-Constant Diversification Rates with Incomplete Taxon Sampling. 2014, PLoS one, Public Library of Science, 9, e84184}
+\references{
+S. Hoehna: Fast simulation of reconstructed phylogenies under global, time-dependent birth-death processes. 2013, Bioinformatics, 29:1367-1374
+
+S. Hoehna: Likelihood Inference of Non-Constant Diversification Rates with Incomplete Taxon Sampling. 2014, PLoS one, Public Library of Science, 9, e84184.
+
+S. Hoehna: The time-dependent reconstructed evolutionary process with a key-role for mass-extinction events. 2015, Journal of Theoretical Biology, 380, 321-331.
+}
 \author{Sebastian Hoehna}
 
 %% ~Make other sections like Warning with \section{Warning }{....} ~
 
 \examples{
+# load a test data set
 data(cettiidae)
+
+# convert the phylogeny into the branching times
 times <- as.numeric( branching.times(cettiidae) )
 
+# construct speciation and extinction rate function that resemble the rate-shift
+# any other function could be used too
 l <- function(x) { if (x > 0.5 || x < 0.3) { return (1) } else { return (2) } }
 e <- function(x) { if (x > 0.5 || x < 0.3) { return (0.95) } else { return (0.5) } }
 
+# now compute the likelihood for the tree
 tess.likelihood(times,l,e,MRCA=TRUE,log=TRUE)
 
-# constant rate likelihood function
-tess.likelihood(times,2.0,1.0,MRCA=TRUE,log=TRUE)
-
-# constant rate pure birth likelihood function
-tess.likelihood(times,2.0,0.0,MRCA=TRUE,log=TRUE)
+# a second approach is the specific episodic birth-death process likelihood function
+# we need to give the rates for each episode and the end time of the episodes
+# you should see that both are equivalent in this setting
+# the function approach is more general but also slower.
+tess.likelihood.rateshift(times,
+				lambda=c(2,1,2),
+				mu=c(0.95,0.5,0.95),
+				rateChangeTimesLambda=c(0.3,0.5),
+				rateChangeTimesMu=c(0.3,0.5),
+				MRCA=TRUE,
+				log=TRUE)
 
 
 }

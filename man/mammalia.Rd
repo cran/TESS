@@ -8,8 +8,8 @@
 data(mammalia)
 }
 \format{
-  The phylogeny is stored as an object of class \code{"phylo"} which
-  structure is described in the help page of the function
+  The phylogeny is stored as an object of class \code{"phylo"}.
+  The structure is described in the help page of the function
   \code{\link{read.tree}} of the package \code{\link{ape}}.
 }
 \source{
@@ -17,10 +17,19 @@ data(mammalia)
 }
 
 \examples{
+# load the data
 data(mammalia)
+
+# safe the current settings of the plotting device
 op <- par()
+
+# set the line width for drawing thinner lines for the branches
 par(cex = 0.3)
+
+# plot the mammalian phylogeny
 plot(mammalia)
+
+# restore the settings of the device
 par(op)
 }
 \keyword{datasets}

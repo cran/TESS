@@ -46,7 +46,7 @@
 #
 ################################################################################
 
-tess.process.output = function(dir,tree=NULL,numExpectedRateChanges=log(2),numExpectedMassExtinctions=log(2),burnin=0.25,numIntervals=100,criticalBayesFactors=c(2,6,10)){
+tess.process.output = function(dir,tree=NULL,numExpectedRateChanges=2,numExpectedMassExtinctions=2,burnin=0.25,numIntervals=100,criticalBayesFactors=c(2,6,10)){
 
   files <- list.files(dir,full.names=TRUE)
 

@@ -138,8 +138,10 @@ tess.sim.age.constant <- function(n,age,lambda,mu,massExtinctionTimes,massExtinc
   # randomly draw a number of taxa
   m <- rgeom(n, p_s * exp(r)) + 1
   if ( MRCA == TRUE ) m <- m + rgeom(n, p_s * exp(r)) + 1
-
+  
+  # for safety we set default values
   m[is.na(m)] <- maxTaxa
+
   m <- pmin(maxTaxa,m)
   
   trees <- list()

@@ -120,7 +120,8 @@ tess.sim.taxa.constant <- function(n,nTaxa,max,lambda,mu,massExtinctionTimes,mas
     stop("Invalid parameter values for lambda and mu!")
   }
 
-  if ( length(massExtinctionTimes) > 0 ) {
+# We will always use the numerical procedures to sample form the root age
+#  if ( length(massExtinctionTimes) >= 0 ) {
     # compute the cumulative distribution function for the time of the process
     pdf <- function(x) tess.equations.pN.constant(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,nTaxa,0,x,SURVIVAL,MRCA,log=FALSE)
 
@@ -140,18 +141,18 @@ tess.sim.taxa.constant <- function(n,nTaxa,max,lambda,mu,massExtinctionTimes,mas
         zz <- zz / zz[n2]  # normalize
         break
       } else {
-        max <- m*1.1
+        max <- max/2.0
       }
     }
 
     icdf <- approxfun(zz, times) ## Interpolate
     simT <- function(n)  icdf(runif(n))
     T <- simT(n)
-  } else {
-    m <- rep(nTaxa / samplingProbability, n)
-    u <- runif(n,0,1)
-    T <- log((-lambda - lambda * u^(1/m) + mu * u^(1/m) + lambda * u^(1/m))/(lambda * (-1 + u^(1/m)))) / (lambda - mu)
-  }
+#  } else {
+#    m <- rep(nTaxa / samplingProbability, n)
+#    u <- runif(n,0,1)
+#    T <- log((-lambda - lambda * u^(1/m) + mu * u^(1/m) + lambda * u^(1/m))/(lambda * (-1 + u^(1/m)))) / (lambda - mu)
+#  }
     
   trees <- list()
   # for each simulation
@@ -192,13 +193,14 @@ tess.sim.taxa.constant <- function(n,nTaxa,max,lambda,mu,massExtinctionTimes,mas
 ################################################################################
 tess.sim.taxa.function <- function(n,nTaxa,max,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,samplingStrategy,SURVIVAL,MRCA,t_crit=c()) {
 
-  # approximate the rate integral and the survival probability integral for fast computations
-  approxFuncs <- tess.prepare.pdf(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,max,t_crit)
-
-  # compute the cumulative distribution function for the time of the process
-  pdf <- function(x) tess.equations.pN.fastApprox(approxFuncs$r,approxFuncs$s,samplingProbability,nTaxa,0,x,SURVIVAL,MRCA,log=FALSE)
-
   repeat { # find a better interval
+    
+    # approximate the rate integral and the survival probability integral for fast computations
+    approxFuncs <- tess.prepare.pdf(lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,max,t_crit)
+
+    # compute the cumulative distribution function for the time of the process
+    pdf <- function(x) tess.equations.pN.fastApprox(approxFuncs$r,approxFuncs$s,samplingProbability,nTaxa,0,x,SURVIVAL,MRCA,log=FALSE)
+
     
     obj.pdf <- function(t, state, pars) list(pdf(t))
     ## This step is slow for large n - perhaps 1/2s for 1000 points
@@ -206,6 +208,7 @@ tess.sim.taxa.function <- function(n,nTaxa,max,lambda,mu,massExtinctionTimes,mas
     times <- seq(0, max, length=n1)
     zz <- lsoda(0, times, obj.pdf, tcrit=max)[,2]
     m <- min(which( (zz[n1] - zz)/zz[n1] < 1E-5))
+#    m2 <- max(which( zz/zz[n1] < 1E-5 )) # currently not used (Sebastian)
     if ( m > (n1/2) ) {
       # now we do it properly
       n2 <- 101
@@ -214,7 +217,7 @@ tess.sim.taxa.function <- function(n,nTaxa,max,lambda,mu,massExtinctionTimes,mas
       zz <- zz / zz[n2]  # normalize
       break
     } else {
-      max <- m*1.1
+        max <- max/2.0
     }
   }
 

@@ -77,23 +77,23 @@ tess.analysis <- function( tree,
                            empiricalHyperPriors = TRUE,
                            empiricalHyperPriorInflation = 10.0,
                            empiricalHyperPriorForm = c("lognormal","normal","gamma"),
-                           speciationRatePriorMean = 1.0,
+                           speciationRatePriorMean = 0.0,
                            speciationRatePriorStDev = 1.0,
-                           extinctionRatePriorMean = 1.0,
+                           extinctionRatePriorMean = 0.0,
                            extinctionRatePriorStDev = 1.0,
                            initialSpeciationRateChangeTime = c(),
                            initialExtinctionRateChangeTime = c(),
                            estimateNumberRateChanges = TRUE,
-                           numExpectedRateChanges = log(2),
+                           numExpectedRateChanges = 2,
                            samplingProbability = 1,
                            missingSpecies = c(),
                            timesMissingSpecies = c(),
                            tInitialMassExtinction = c(),
                            pInitialMassExtinction = c(),
-                           pMassExtinctionPriorShape1 = 2,
-                           pMassExtinctionPriorShape2 = 10,
+                           pMassExtinctionPriorShape1 = 5,
+                           pMassExtinctionPriorShape2 = 95,
                            estimateMassExtinctionTimes = TRUE,
-                           numExpectedMassExtinctions = log(2),
+                           numExpectedMassExtinctions = 2,
                            estimateNumberMassExtinctions = TRUE,
                            MRCA = TRUE,
                            CONDITION = "survival",
@@ -169,11 +169,6 @@ tess.analysis <- function( tree,
     if ( tries >= MAX_TRIES ) {
         stop("Could not find valid starting values after ",tries," attemps.\n")
     }
-
-#     cat("\nStarting Values:\n")
-#     cat("\tnet-diversification    = ",starting.values[1],"\n")
-#     cat("\trelative-extinction    = ",starting.values[2],"\n")
-#     cat("\tlnl                    = ",empirical.prior.likelihood(starting.values),"\n")
 
     samples <- tess.mcmc( empirical.prior.likelihood,priors,starting.values,logTransforms=c(TRUE,TRUE),delta=c(0.1,0.1),iterations=20000,burnin=2000,verbose=verbose)
 
@@ -264,39 +259,7 @@ tess.analysis <- function( tree,
       cat("rate:\t\t",extinctionRatePriorStDev,"\n",file=summary.file,append=TRUE)
     }
 
-#     if ( verbose ) {
-#       cat("\nSummary of the empirical hyperprior analysis")
-#       cat("\n============================================\n\n")
-#       cat("Specation rate hyperprior\n")
-#       cat("-------------------------\n")
-#       cat("Form:\t",lambda.hyper.prior.form,'\n')
-#       if ( lambda.hyper.prior.form == "lognormal" ) {
-#         cat("meanlog:\t",speciationRatePriorMean,"\n")
-#         cat("sdlog:\t",speciationRatePriorStDev,"\n")
-#       } else if ( lambda.hyper.prior.form == "normal" ) {
-#         cat("mean:\t",speciationRatePriorMean,"\n")
-#         cat("sd:\t",speciationRatePriorStDev,"\n")
-#       } else if ( lambda.hyper.prior.form == "gamma" ) {
-#         cat("shape:\t",speciationRatePriorMean,"\n")
-#         cat("rate:\t",speciationRatePriorStDev,"\n")
-#       }
-#       cat("\nExtinction rate hyperprior\n")
-#       cat("-------------------------\n")
-#       cat("Form:\t",mu.hyper.prior.form,'\n')
-#       if ( mu.hyper.prior.form == "lognormal" ) {
-#         cat("meanlog:\t",extinctionRatePriorMean,"\n")
-#         cat("sdlog:\t",extinctionRatePriorStDev,"\n")
-#       } else if ( mu.hyper.prior.form == "normal" ) {
-#         cat("mean:\t",extinctionRatePriorMean,"\n")
-#         cat("sd:\t",extinctionRatePriorStDev,"\n")
-#       } else if ( mu.hyper.prior.form == "gamma" ) {
-#         cat("shape:\t",extinctionRatePriorMean,"\n")
-#         cat("rate:\t",extinctionRatePriorStDev,"\n")
-#       }
-#       cat("\n")
-#     }
-
-  } else {
+  } else { # no empirical hyper priors
 
     lambda.hyper.prior.form <- mu.hyper.prior.form <- empiricalHyperPriorForm[1]
 
@@ -459,8 +422,6 @@ tess.analysis <- function( tree,
   i <- 1
 
   if ( verbose ) {
-#     cat("Initial prior probability:\t",prior(lambdaChangeTimes,lambda,muChangeTimes,mu,tMassExtinction,pMassExtinction),"\n")
-#     cat("Initial likelihood:\t\t",likelihood(lambda,lambdaChangeTimes,mu,muChangeTimes,tMassExtinction,pMassExtinction),"\n")
     cat("\nPerforming CoMET analysis.\n\n")
     if( burn > 0 ) {
       cat("Burning-in the chain ...\n")
@@ -578,7 +539,6 @@ tess.analysis <- function( tree,
         } else if ( lambda.hyper.prior.form == "gamma" ) {
           pr <- 1 / ( dunif(t,0,AGE) * dgamma(v,speciationRatePriorMean,speciationRatePriorStDev) )
         }
-#         pr <- 1 / ( dunif(t,0,AGE) * dlnorm(v,speciationRatePriorMean,speciationRatePriorStDev) )
 
         # accept/reject
         if ( is.finite(newPP - oldPP + log(pr)) == FALSE || log( runif(1,0,1) ) > ( newPP - oldPP + log( pr ) ) ) {
@@ -619,7 +579,6 @@ tess.analysis <- function( tree,
           } else if ( lambda.hyper.prior.form == "gamma" ) {
             pr2 <-  dunif(t[idx],0,AGE) * dgamma(v[idx+1],speciationRatePriorMean,speciationRatePriorStDev)
           }
-#           pr2 <-  dunif(t[idx],0,AGE) * dlnorm(v[idx+1],speciationRatePriorMean,speciationRatePriorStDev)
 
           # accept/reject
           if ( is.finite(newPP - oldPP + log(pr2)) == FALSE || log( runif(1,0,1) ) > ( newPP - oldPP + log( pr2 ) ) ) {
@@ -743,7 +702,6 @@ tess.analysis <- function( tree,
         } else if ( mu.hyper.prior.form == "gamma" ) {
           pr <- 1 / ( dunif(t,0,AGE) * dgamma(v,extinctionRatePriorMean,extinctionRatePriorStDev) )
         }
-#         pr <- 1 / ( dunif(t,0,AGE) * dlnorm(v,extinctionRatePriorMean,extinctionRatePriorStDev) )
 
         # accept/reject
         if ( is.finite(newPP - oldPP + log(pr)) == FALSE || log( runif(1,0,1) ) > ( newPP - oldPP + log( pr ) ) ) {
@@ -784,7 +742,6 @@ tess.analysis <- function( tree,
           } else if ( mu.hyper.prior.form == "gamma" ) {
             pr2 <-  dunif(t[idx],0,AGE) * dgamma(v[idx+1],extinctionRatePriorMean,extinctionRatePriorStDev)
           }
-#           pr2 <-  dunif(t[idx],0,AGE) * dlnorm(v[idx+1],extinctionRatePriorMean,extinctionRatePriorStDev)
 
           # accept/reject
           if ( is.finite(newPP - oldPP + log(pr2)) == FALSE || log( runif(1,0,1) ) > ( newPP - oldPP + log( pr2 ) ) ) {
@@ -1061,8 +1018,6 @@ tess.analysis <- function( tree,
       cat("\n",file="MassExtinctionTimes.txt",append=TRUE)
 
       nSamples <- sampleIndex
-#       write.table(list(Iteration=(0:nSamples)*THINNING,posterior=c(initialPP,posterior),NumSpeciation=c(length(initialSpeciationRate),kLambda),numExtinction=c(length(initialExtinctionRate),kMu),numMassExtinctions=c(length(pInitialMassExtinction),kMassExtinction)), "samples_numCategories.txt", sep="\t", row.names = FALSE)
-#       write.table(list(Iteration=(1:nSamples)*THINNING,posterior=posterior,NumSpeciation=kLambda,numExtinction=kMu,numMassExtinctions=kMassExtinction),"samples_numCategories.txt", sep="\t", row.names = FALSE)
       write.table(list(Iteration=nSamples*THINNING,posterior=posterior[nSamples],NumSpeciation=kLambda[nSamples],numExtinction=kMu[nSamples],numMassExtinctions=kMassExtinction[nSamples]),"samples_numCategories.txt", sep="\t", row.names = FALSE, append=TRUE, quote = FALSE, col.names = FALSE)
 
     }
@@ -1071,7 +1026,6 @@ tess.analysis <- function( tree,
     if ( i %% CONVERGENCE_FREQUENCY == 0 & SAMPLE & length(posterior) > 2 ) {
 
       samples <- length(posterior)
-#       burn <- round(samples * BURNIN)
 
       if ( estimateNumberRateChanges == TRUE ) {
         spectralDensityLambda <- spectrum0.ar(kLambda)$spec
@@ -1148,69 +1102,6 @@ tess.analysis <- function( tree,
 
     }
 
-#     if ( i >= MAX_ITERATIONS ) {
-#       finished <- TRUE
-#     }
-#
-#     currentTime <- Sys.time()
-#     if ( (currentTime - startTime) >= MAX_TIME ) {
-#       finished <- TRUE
-#     }
-#
-#     if ( i %% CONVERGENCE_FREQUENCY == 0 && !finished ) {
-#
-#       samples <- length(posterior)
-#       burn <- round(samples * BURNIN)
-#
-#       converged <- TRUE
-#       if ( estimateNumberRateChanges == TRUE ) {
-#         spectralDensityLambda <- spectrum0.ar(kLambda[burn:samples])$spec
-#         spectralDensityMu     <- spectrum0.ar(kMu[burn:samples])$spec
-#         if ( spectralDensityLambda > 0 && spectralDensityMu > 0 ) {
-#           ess_kLambda <- (var(kLambda[burn:samples]) * (samples-burn)/spectralDensityLambda)
-#           ess_kMu <- (var(kMu[burn:samples]) * (samples-burn)/spectralDensityMu)
-#           converged <- ess_kLambda > MIN_ESS && ess_kMu > MIN_ESS
-#         } else {
-#           converged <- FALSE
-#         }
-#       }
-#
-#       if ( converged == TRUE ) {
-#         spec <- c()
-#         for ( j in burn:length(speciationRateValues) ) {
-#           spec[j-burn+1] <- speciationRateValues[[j]][1]
-#         }
-#         spectralDensity     <- spectrum0.ar(spec)$spec
-#         if ( spectralDensity > 0 ) {
-#           ess_spec <- (var(spec) * (samples-burn)/spectralDensity)
-#           converged <- ess_spec > MIN_ESS
-#         } else {
-#           converged <- FALSE
-#         }
-#       }
-#
-#       if ( converged == TRUE ) {
-#         ext <- c()
-#         for ( j in burn:length(extinctionRateValues) ) {
-#           ext[j-burn+1] <- extinctionRateValues[[j]][1]
-#         }
-#         spectralDensity     <- spectrum0.ar(ext)$spec
-#         if ( spectralDensity > 0 ) {
-#           ess_ext <- (var(ext) * (samples-burn)/spectralDensity)
-#           converged <- ess_ext > MIN_ESS
-#         } else {
-#           converged <- FALSE
-#         }
-#       }
-#
-#       if ( converged == TRUE && estimateNumberMassExtinctions == TRUE ) {
-#         ess_kMassExtinctions <- (var(kMassExtinction[burn:samples]) * (samples-burn)/spectrum0.ar(kMassExtinction[burn:samples])$spec)
-#         converged <- ess_kMassExtinctions > MIN_ESS
-#       }
-#
-#       finished <- converged
-#     }
-
     i <- i + 1
 
     if ( i == burn & !SAMPLE ) {
@@ -1226,6 +1117,7 @@ tess.analysis <- function( tree,
 
   }
 
+  cat("\n")
   setwd(file.path(orgDir))
 
 }

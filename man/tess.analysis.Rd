@@ -3,7 +3,7 @@
 \alias{globalBiDe.analysis}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{tess.analysis: Diversification rate estimation under an episodic birth-death process including mass-extinction events.}
-\description{tess.analysis estimates diversification rates under an episodic birth-death process including mass-extinction events. The method uses a reversible-jump MCMC algorithm to estimate the number, timing and magnitude of rate-shifts and mass-extinction events. It is possible to fix either number of events and provide specific values that will be used. We assume a Poison process for the number of events and a log-normal distribution with fixed, but specified, hyper-parameters for the speciation and extinction rate; and an independent Poison process for the number of mass-extinction events where each survival probability follows a Beta distribution with fixed hyper-parameters.
+\description{tess.analysis estimates diversification rates under an episodic birth-death process including mass-extinction events. The method uses a reversible-jump MCMC algorithm to estimate the number, timing and magnitude of rate-shifts and mass-extinction events. It is possible to fix either number of events and provide specific values that will be used. We assume a Poison process for the number of events and a lognormal distribution with fixed, but specified, hyper-parameters for the speciation and extinction rate; and an independent Poison process for the number of mass-extinction events where each survival probability follows a Beta distribution with fixed hyper-parameters.
 
 The MCMC algorithm can be run either for a specified number of iterations, until a time limit in seconds has been reached, or until the effective sample size (ESS) has reached a given threshold. Once the first of these requirements are met TESS will stop the analysis. Internally we use scaling and sliding proposals to change the parameter values during the MCMC and a birth-move and death-move to add/remove events (rate-shifts or mass-extinction events).
 
@@ -16,23 +16,23 @@ tess.analysis( tree,
                empiricalHyperPriors = TRUE,
                empiricalHyperPriorInflation = 10.0,
                empiricalHyperPriorForm = c("lognormal","normal","gamma"),
-               speciationRatePriorMean = 1.0,
+               speciationRatePriorMean = 0.0,
                speciationRatePriorStDev = 1.0,
-               extinctionRatePriorMean = 1.0,
+               extinctionRatePriorMean = 0.0,
                extinctionRatePriorStDev = 1.0,
                initialSpeciationRateChangeTime = c(),
                initialExtinctionRateChangeTime = c(),
                estimateNumberRateChanges = TRUE,
-               numExpectedRateChanges = log(2),
+               numExpectedRateChanges = 2,
                samplingProbability = 1,
                missingSpecies = c(),
                timesMissingSpecies = c(),
                tInitialMassExtinction = c(),
                pInitialMassExtinction = c(),
-               pMassExtinctionPriorShape1 = 2,
-               pMassExtinctionPriorShape2 = 10,
+               pMassExtinctionPriorShape1 = 5,
+               pMassExtinctionPriorShape2 = 95,
                estimateMassExtinctionTimes = TRUE,
-               numExpectedMassExtinctions = log(2),
+               numExpectedMassExtinctions = 2,
                estimateNumberMassExtinctions = TRUE,
                MRCA = TRUE,
                CONDITION = "survival",
@@ -87,30 +87,38 @@ tess.analysis( tree,
   \item{priorOnly}{Do we sample from the prior only? The default is FALSE}
   \item{verbose}{Do you want detailed output?}
 }
-\value{Returns the (log) probability of the tree, i.e. the likelihood of the parameters given the tree.}
-\references{TESS: ...}
+\value{There is no return value because all the results are stored into files.}
+\references{
+S. Hoehna: The time-dependent reconstructed evolutionary process with a key-role for mass-extinction events. 2015, Journal of Theoretical Biology, 380, 321-331.
+
+S. Hoehna, MR May and BR Moore: TESS: Bayesian inference of lineage diversification rates from (incompletely sampled) molecular phylogenies in R. 2015, Bioinformatics.
+
+MR May, S. Hoehna, and BR Moore: A Bayesian approach for detecting mass-extinction events when rates of lineage diversification vary. 2015, Systematic Biology
+}
 \author{Sebastian Hoehna}
 
 %% ~Make other sections like Warning with \section{Warning }{....} ~
 
 \examples{
-data(mammalia)
+# we load the conifers as the test data set
+data(conifers)
 
-PRESENT <- max( as.numeric( branching.times( mammalia ) ) )
-total <- 4835
-rho <- (mammalia$Nnode+1)/total
+# for the conifers we know what the total number of species is
+total <- 630
+# thus, we can compute what the sampling fraction is
+rho <- (conifers$Nnode+1)/total
 
-m_lambda = 0.15064418 
-v_lambda = 0.02
-mu_lambda = log((m_lambda^2)/sqrt(v_lambda+m_lambda^2))
-std_lambda = sqrt( log(1+v_lambda/(m_lambda^2)) )
-	
-m_mu = 0.09216889
-v_mu = 0.02
-mu_mu = log((m_mu^2)/sqrt(v_mu+m_mu^2))
-std_mu = sqrt( log(1+v_mu/(m_mu^2)) )
 
-tess.analysis( tree=mammalia,
+# next, we specify the prior mean and standard deviation 
+# for the speciation and extinction rate
+mu_lambda = 0.15
+std_lambda = 0.02
+mu_mu = 0.09
+std_mu = 0.02
+
+# now we can run the entire analysis.
+# note that a full analyses should be run much longer
+tess.analysis( tree=conifers,
                initialSpeciationRate=exp(mu_lambda),
                initialExtinctionRate=exp(mu_mu),
                empiricalHyperPriors = FALSE,
@@ -118,13 +126,17 @@ tess.analysis( tree=mammalia,
                speciationRatePriorStDev = std_lambda,
                extinctionRatePriorMean = mu_mu,
                extinctionRatePriorStDev = std_mu,
-               numExpectedRateChanges = log(2),
+               numExpectedRateChanges = 2,
                samplingProbability = rho,
-               numExpectedMassExtinctions = log(2),
+               numExpectedMassExtinctions = 2,
                BURNIN = 100,
                MAX_ITERATIONS = 200,
                THINNING = 10,
-               dir = "analysis_mammalia")
+               dir = "analysis_conifer")
+               
+# You may want to look into the vignette for a more detailed description
+# of the features for an analysis.
+# also have a look at the functions tess.process.output and tess.plot.output
 
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the

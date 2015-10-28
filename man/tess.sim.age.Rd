@@ -21,7 +21,7 @@ tess.sim.age(n, age, lambda, mu, massExtinctionTimes = c(),
   \item{maxTaxa}{The maximum number of possible taxa. If by chance a higher number is simulated, than simply ntaxa=maxTaxa. This is useful when too large trees should be simulated because this takes too much time and memory.}
   \item{MRCA}{Does the process start with the most recent common ancestor?}
 }
-\value{Returns a tree in 'phylo' format.
+\value{Returns a set of trees in 'phylo' format.
 }
 \references{S. Hoehna: Fast simulation of reconstructed phylogenies under global, time-dependent birth-death processes. 2013, Bioinformatics, 29:1367-1374 }
 \author{Sebastian Hoehna}

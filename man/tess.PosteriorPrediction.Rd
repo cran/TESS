@@ -2,7 +2,7 @@
 \alias{tess.PosteriorPrediction}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{tess.PosteriorPrediction: Approximation of the posterior predictive distribution.}
-\description{tess.PosteriorPrediction calls the simulation function exactly once for each sampled parameter combination. In that way, posterior predictive simulations can be obtained.}
+\description{tess.PosteriorPrediction calls the simulation function exactly once for each sampled parameter combination. In that way, posterior predictive simulations can be obtained which then in turn can be used to compute summary statistics based on these posterior predictive simulations. Fore more information see the vignette.}
 \usage{
 tess.PosteriorPrediction(simulationFunction,parameters,burnin)
 }
@@ -58,7 +58,11 @@ sim <- function(params) {
 }
 
 trees <- tess.PosteriorPrediction(sim,samples)
-#plot(trees)
+
+# compute the posterior predictive test statistic
+ppt <- tess.PosteriorPredictiveTest(trees,cettiidae,gammaStat)
+# get the p-value of the observed test-statistic
+ppt[[2]]
 
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the

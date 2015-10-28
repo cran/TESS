@@ -130,7 +130,9 @@ tess.plot.output = function(output,fig.types=c("speciation rates","speciation sh
       meanThisOutput <- colMeans(thisOutput)
       quantilesThisOutput <- apply(thisOutput,2,quantile,prob=c(0.025,0.975))
       if( type %in% c("speciation rates","extinction rates")){
-        ylim <- c(0,max(output[["speciation rates"]],output[["extinction rates"]]))
+        quantilesSpeciation <- apply(output[["speciation rates"]],2,quantile,prob=c(0.025,0.975))
+        quantilesExtinction <- apply(output[["extinction rates"]],2,quantile,prob=c(0.025,0.975))
+        ylim <- c(0,max(quantilesSpeciation,quantilesExtinction))
       } else {
         ylim <- c(0,max(quantilesThisOutput))
       }

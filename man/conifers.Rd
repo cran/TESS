@@ -8,8 +8,8 @@
 data(conifers)
 }
 \format{
-  The phylogeny is stored as an object of class \code{"phylo"} which
-  structure is described in the help page of the function
+  The phylogeny is stored as an object of class \code{"phylo"}.
+  The structure is described in the help page of the function
   \code{\link{read.tree}} of the package \code{\link{ape}}.
 }
 \source{
@@ -17,10 +17,19 @@ data(conifers)
 }
 
 \examples{
+# load the tree
 data(conifers)
+
+# safe the settings of the plotting device
 op <- par()
+
+# set the line width for plotting the branches
 par(cex = 0.3)
+
+# plot the phylogenetic tree
 plot(conifers)
+
+# restore the settings of the device
 par(op)
 }
 \keyword{datasets}

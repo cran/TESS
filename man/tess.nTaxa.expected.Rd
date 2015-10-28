@@ -2,7 +2,7 @@
 \alias{tess.nTaxa.expected}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{tess.nTaxa.expected: The expected number of taxa at present of a tree under a global, time-dependent birth-death process (  E[ N(T) ]  )}
-\description{tess.nTaxa.expected computes the expected number of taxa at the present time T (the process start at time s and times increases until the present) under time-dependent. The rates may be any positive function of time or a constant. Additionally, mass-extinction event can be provided and a uniform taxon sampling probability. You have several options for the start of the process (origin vs MRCA).}
+\description{tess.nTaxa.expected computes the expected number of taxa at the present time T (the process start at time s and times increases until the present) under time-dependent. The rates may be any positive function of time or a constant. Additionally, mass-extinction event can be provided and a uniform taxon sampling probability. You have several options for the start of the process (origin vs MRCA). One important feature is that you can compute the expected number of taxa under the reconstructed process, that is, only lineages that survive until the present.}
 \usage{
 tess.nTaxa.expected( begin,
 			   t,
@@ -36,9 +36,15 @@ tess.nTaxa.expected( begin,
 
 \examples{
 
+# create the time-dependent speciation and extinction rate functions
+# here we use episodic functions
 l <- function(x) { if (x > 0.5 || x < 0.3) { return (1) } else { return (2) } }
 e <- function(x) { if (x > 0.5 || x < 0.3) { return (0.95) } else { return (0.5) } }
 
+# now we can compute the expected number of taxa at time t
+# note that we compute here the actual diversity at time t
+# if you set reconstructed=TRUE, then you get the expected
+# number of lineages that will survive until the present
 tess.nTaxa.expected(begin=0,t=2,end=5,l,e,MRCA=TRUE)
 
 

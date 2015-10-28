@@ -8,8 +8,8 @@
 data(cettiidae)
 }
 \format{
-  The phylogeny is stored as an object of class \code{"phylo"} which
-  structure is described in the help page of the function
+  The phylogeny is stored as an object of class \code{"phylo"}.
+  The structure is described in the help page of the function
   \code{\link{read.tree}} of the package \code{\link{ape}}.
 }
 \source{
@@ -17,10 +17,19 @@ data(cettiidae)
 }
 
 \examples{
+# load the data
 data(cettiidae)
+
+# safe the old plotting settings
 op <- par()
+
+# set the new plotting settings
 par(cex = 0.3)
+
+# plot the phylogeny
 plot(cettiidae)
+
+# restore the plotting settings
 par(op)
 }
 \keyword{datasets}
