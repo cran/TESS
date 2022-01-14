@@ -98,7 +98,12 @@ coniferOutput_2 <- tess.process.output(dir="./run_2",
 # Plot the output
 outputs <- list(coniferOutput_1,coniferOutput_2)
 tess.plot.multichain.diagnostics(outputs)
+\dontshow{
+	unlink("run_1", recursive = TRUE) 
+	unlink("run_2", recursive = TRUE) 
 }
+}
+
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.
 \keyword{ models }

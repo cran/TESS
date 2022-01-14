@@ -77,7 +77,8 @@ tess.process.output = function(dir,tree=NULL,numExpectedRateChanges=2,numExpecte
   speciationRateCategories <- as.mcmc(numCategoriesOutput$NumSpeciation[categoriesBurnin:nrow(numCategoriesOutput)])
 
   # Process the number of extinction rate categories
-  extinctionRateCategories <- as.mcmc(numCategoriesOutput$numExtinction[categoriesBurnin:nrow(numCategoriesOutput)])
+  extinctionRateCategories <-
+	  as.mcmc(numCategoriesOutput$numExtinction[categoriesBurnin:nrow(numCategoriesOutput)])
 
   # Process the number of mass-extinction events
   numMassExtinctions <- as.mcmc(numCategoriesOutput$numMassExtinctions[categoriesBurnin:nrow(numCategoriesOutput)])
@@ -85,7 +86,9 @@ tess.process.output = function(dir,tree=NULL,numExpectedRateChanges=2,numExpecte
   # Process the speciation rates
   speciationRateChangeTimes <- strsplit(readLines(grep("SpeciationRateChanges",files,value=TRUE))[-1],"\t")
   speciationRates <- strsplit(readLines(grep("SpeciationRates",files,value=TRUE))[-1],"\t")
-  speciationBurnin <- length(speciationRates) * burnin
+  speciationBurnin <- max(1,trunc(length(speciationRates) * burnin))
+
+  #browser()
 
   processSpeciationRates <- as.mcmc(do.call(rbind,lapply(speciationBurnin:length(speciationRateChangeTimes),function(sample) {
     times <- as.numeric(speciationRateChangeTimes[[sample]])
@@ -114,7 +117,7 @@ tess.process.output = function(dir,tree=NULL,numExpectedRateChanges=2,numExpecte
   # Process the extinction rates
   extinctionRateChangeTimes <- strsplit(readLines(grep("ExtinctionRateChanges",files,value=TRUE))[-1],"\t")
   extinctionRates <- strsplit(readLines(grep("ExtinctionRates",files,value=TRUE))[-1],"\t")
-  extinctionBurnin <- length(extinctionRates) * burnin
+  extinctionBurnin <- max(1,trunc(length(extinctionRates) * burnin))
 
   processExtinctionRates <- as.mcmc(do.call(rbind,lapply(extinctionBurnin:length(extinctionRateChangeTimes),function(sample) {
     times <- as.numeric(extinctionRateChangeTimes[[sample]])
@@ -125,6 +128,8 @@ tess.process.output = function(dir,tree=NULL,numExpectedRateChanges=2,numExpecte
     res   <- rates[findInterval(intervals[-1],times)+1]
     return (res)
   } )))
+
+  #browser()
 
   processExtinctionRateChangeTimes <- as.mcmc(do.call(rbind,lapply(1:length(extinctionRateChangeTimes),function(sample) {
     times <- sort(as.numeric(extinctionRateChangeTimes[[sample]]))
@@ -146,7 +151,7 @@ tess.process.output = function(dir,tree=NULL,numExpectedRateChanges=2,numExpecte
 
   # Process the mass extinctions
   massExtinctionTimes <- strsplit(readLines(grep("MassExtinctionTimes",files,value=TRUE))[-1],"\t")
-  massExtinctionBurnin <- length(massExtinctionTimes) * burnin
+  massExtinctionBurnin <- max(1, trunc(length(massExtinctionTimes) * burnin))
 
   processMassExtinctionTimes <- as.mcmc(do.call(rbind,lapply(massExtinctionBurnin:length(massExtinctionTimes),function(sample) {
     times <- sort(as.numeric(massExtinctionTimes[[sample]]))

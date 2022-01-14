@@ -2,7 +2,7 @@ export(tess.likelihood, tess.likelihood.rateshift, tess.analysis, tess.nTaxa.exp
 
 import(ape,coda,deSolve)
 
-useDynLib(TESS)
+useDynLib(TESS, .registration = TRUE)
 importFrom(Rcpp, evalCpp)
 importFrom("grDevices", "rgb")
 importFrom("graphics", "abline", "axis", "barplot", "box", "par", "plot", "polygon")

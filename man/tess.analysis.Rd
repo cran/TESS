@@ -137,6 +137,10 @@ tess.analysis( tree=conifers,
 # You may want to look into the vignette for a more detailed description
 # of the features for an analysis.
 # also have a look at the functions tess.process.output and tess.plot.output
+\dontshow{
+	unlink("analysis_conifer", recursive = TRUE)
+}
+
 
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the

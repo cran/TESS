@@ -93,6 +93,12 @@ coniferOutput <- tess.process.output(dir=getwd(),
 
 # Plot the output
 tess.plot.output(coniferOutput)
+
+\dontshow{
+	unlink("*.txt")
+	unlink("*.pdf")
+	unlink("*.tre")
+}
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.
