@@ -30,8 +30,8 @@ tess.sim.taxa.age(n, nTaxa, age, lambda, mu, massExtinctionTimes = c(),
 
 \examples{
 
-l <- function(x) { if (x > 0.5 || x < 0.3) { return (1) } else { return (2) } }
-e <- function(x) { if (x > 0.5 || x < 0.3) { return (0.95) } else { return (0.5) } }
+l <- Vectorize(function(x) { if (x > 0.5 || x < 0.3) { return (1) } else { return (2) } })
+e <- Vectorize(function(x) { if (x > 0.5 || x < 0.3) { return (0.95) } else { return (0.5) } })
 
 tess.sim.taxa.age(n=1,l,e,nTaxa=10,age=1,MRCA=TRUE)
 

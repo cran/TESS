@@ -30,8 +30,8 @@ tess.sim.age(n, age, lambda, mu, massExtinctionTimes = c(),
 
 \examples{
 
-l <- function(x) { if (x > 0.5 || x < 0.3) { return (1) } else { return (2) } }
-e <- function(x) { if (x > 0.5 || x < 0.3) { return (0.95) } else { return (0.5) } }
+l <- Vectorize(function(x) { if (x > 0.5 || x < 0.3) { return (1) } else { return (2) } })
+e <- Vectorize(function(x) { if (x > 0.5 || x < 0.3) { return (0.95) } else { return (0.5) } })
 
 tess.sim.age(n=1,age=1,l,e,MRCA=TRUE)
 

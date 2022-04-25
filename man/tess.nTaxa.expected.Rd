@@ -38,8 +38,8 @@ tess.nTaxa.expected( begin,
 
 # create the time-dependent speciation and extinction rate functions
 # here we use episodic functions
-l <- function(x) { if (x > 0.5 || x < 0.3) { return (1) } else { return (2) } }
-e <- function(x) { if (x > 0.5 || x < 0.3) { return (0.95) } else { return (0.5) } }
+l <- Vectorize(function(x) { if (x > 0.5 || x < 0.3) { return (1) } else { return (2) } })
+e <- Vectorize(function(x) { if (x > 0.5 || x < 0.3) { return (0.95) } else { return (0.5) } })
 
 # now we can compute the expected number of taxa at time t
 # note that we compute here the actual diversity at time t

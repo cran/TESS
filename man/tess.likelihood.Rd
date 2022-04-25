@@ -54,8 +54,8 @@ times <- as.numeric( branching.times(cettiidae) )
 
 # construct speciation and extinction rate function that resemble the rate-shift
 # any other function could be used too
-l <- function(x) { if (x > 0.5 || x < 0.3) { return (1) } else { return (2) } }
-e <- function(x) { if (x > 0.5 || x < 0.3) { return (0.95) } else { return (0.5) } }
+l <- Vectorize(function(x) { if (x > 0.5 || x < 0.3) { return (1) } else { return (2) } })
+e <- Vectorize(function(x) { if (x > 0.5 || x < 0.3) { return (0.95) } else { return (0.5) } })
 
 # now compute the likelihood for the tree
 tess.likelihood(times,l,e,MRCA=TRUE,log=TRUE)

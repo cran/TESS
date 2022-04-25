@@ -59,7 +59,7 @@ tess.nTaxa.expected <- function(begin,t,end,lambda,mu,massExtinctionTimes=c(),ma
   }
   
   # test if we got constant values for the speciation and extinction rates
-  if ( class(lambda) == "numeric" && class(mu) == "numeric" ) {
+  if ( is(lambda, "numeric") && is(mu, "numeric")) {
     # call computations for constant rates (much faster)
     if ( reconstructed == FALSE ) {
       p <- tess.equations.nTaxa.expected.constant(begin,end,lambda,mu,massExtinctionTimes,massExtinctionSurvivalProbabilities,samplingProbability,MRCA)
